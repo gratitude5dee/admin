@@ -36,7 +36,7 @@ export default async function UserDetailPage({
 }) {
   const { id } = await params;
   const days = rangeDays((await searchParams).days);
-  const userId = decodeURIComponent(id);
+  const userId = id;
   const query = encodeURIComponent(userId);
   const [directory, series, tokens, boxes, traces, feedback] =
     await Promise.all([

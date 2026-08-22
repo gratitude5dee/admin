@@ -47,8 +47,14 @@ export default async function BoxesPage({
   return (
     <>
       <Panel title={`Platform activity (${days}d)`} note="From /api/admin/timeseries — runs, box wakes/stops, tokens, and cost over time.">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-3 flex justify-end">
+          <RangeToggle days={days} basePath="/" />
+        </div>
+        {series.error !== null ? (
+          <LoadError error={series.error} />
+        ) : (
+          <>
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat
               label="agent runs"
               value={totals.runs.toLocaleString()}
@@ -74,13 +80,6 @@ export default async function BoxesPage({
               accent="orange"
             />
           </div>
-          <div className="ml-4 self-start">
-            <RangeToggle days={days} basePath="/" />
-          </div>
-        </div>
-        {series.error !== null ? (
-          <LoadError error={series.error} />
-        ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <p className="mb-1 font-mono text-[10px] text-muted-foreground">
@@ -119,6 +118,7 @@ export default async function BoxesPage({
               />
             </div>
           </div>
+          </>
         )}
       </Panel>
 
