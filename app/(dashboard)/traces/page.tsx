@@ -2,6 +2,7 @@ import { adminGetSafe } from "@/lib/controlPlane";
 import type { TracesResponse } from "@/lib/types";
 import { fetchUserDirectory } from "@/lib/users";
 import { DataTable, LoadError, Panel } from "@/components/panel";
+import { UserLink } from "@/components/user-link";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +68,12 @@ export default async function TracesPage({
         <DataTable
           headers={["user", ...PREVIEW_COLUMNS]}
           rows={traces.data.receipts.slice(0, 200).map((receipt) => [
-            typeof receipt.user_id === "string"
-              ? directory.label(receipt.user_id)
-              : null,
+            typeof receipt.user_id === "string" ? (
+              <UserLink
+                userId={receipt.user_id}
+                label={directory.label(receipt.user_id)}
+              />
+            ) : null,
             ...PREVIEW_COLUMNS.map((column) => receipt[column] ?? null),
           ])}
         />
