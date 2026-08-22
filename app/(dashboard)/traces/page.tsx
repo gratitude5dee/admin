@@ -1,11 +1,11 @@
 import { adminGetSafe } from "@/lib/controlPlane";
 import type { TracesResponse } from "@/lib/types";
+import { fetchUserDirectory } from "@/lib/users";
 import { DataTable, LoadError, Panel } from "@/components/panel";
 
 export const dynamic = "force-dynamic";
 
 const PREVIEW_COLUMNS = [
-  "user_id",
   "ts",
   "kind",
   "status",
@@ -22,9 +22,10 @@ export default async function TracesPage({
   const { user_id } = await searchParams;
   const query = new URLSearchParams({ limit: "200" });
   if (user_id) query.set("user_id", user_id);
-  const traces = await adminGetSafe<TracesResponse>(
-    `/api/admin/traces?${query.toString()}`
-  );
+  const [traces, directory] = await Promise.all([
+    adminGetSafe<TracesResponse>(`/api/admin/traces?${query.toString()}`),
+    fetchUserDirectory(),
+  ]);
 
   const exportQuery = user_id ? `&user_id=${encodeURIComponent(user_id)}` : "";
 
@@ -64,12 +65,13 @@ export default async function TracesPage({
         <LoadError error={traces.error} />
       ) : (
         <DataTable
-          headers={[...PREVIEW_COLUMNS]}
-          rows={traces.data.receipts
-            .slice(0, 200)
-            .map((receipt) =>
-              PREVIEW_COLUMNS.map((column) => receipt[column] ?? null)
-            )}
+          headers={["user", ...PREVIEW_COLUMNS]}
+          rows={traces.data.receipts.slice(0, 200).map((receipt) => [
+            typeof receipt.user_id === "string"
+              ? directory.label(receipt.user_id)
+              : null,
+            ...PREVIEW_COLUMNS.map((column) => receipt[column] ?? null),
+          ])}
         />
       )}
     </Panel>

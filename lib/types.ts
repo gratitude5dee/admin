@@ -1,5 +1,15 @@
 /** Response shapes of the airv2 control-plane admin endpoints (metadata only). */
 
+export interface UsersResponse {
+  users: {
+    user_id: string;
+    username: string | null;
+    status: string;
+    created_at: string;
+    handles: { platform: string; address: string }[];
+  }[];
+}
+
 export interface TokensResponse {
   window_days: number;
   since: string;
