@@ -3,6 +3,7 @@ import { fetchUserDirectory } from "@/lib/users";
 import type { TokensResponse } from "@/lib/types";
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
 import { TokensChart } from "@/components/tokens-chart";
+import { UserLink } from "@/components/user-link";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,11 @@ export default async function TokensPage() {
             <DataTable
               headers={["user", "runs", "prompt", "completion", "total", "cost"]}
               rows={tokens.data.users.map((user) => [
-                directory.label(user.user_id),
+                <UserLink
+                  key={user.user_id}
+                  userId={user.user_id}
+                  label={directory.label(user.user_id)}
+                />,
                 user.runs,
                 user.prompt_tokens.toLocaleString(),
                 user.completion_tokens.toLocaleString(),

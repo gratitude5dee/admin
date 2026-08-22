@@ -22,13 +22,42 @@ export function Panel({
   );
 }
 
-export function Stat({ label, value }: { label: string; value: string }) {
+const ACCENTS = {
+  green: "text-emerald-400",
+  blue: "text-sky-400",
+  purple: "text-violet-400",
+  orange: "text-orange-400",
+  pink: "text-pink-400",
+  none: "text-foreground",
+} as const;
+
+export type StatAccent = keyof typeof ACCENTS;
+
+export function Stat({
+  label,
+  value,
+  sub,
+  accent = "none",
+}: {
+  label: string;
+  value: string;
+  /** Small caption under the value, e.g. "2.3 GB / 7.6 GB". */
+  sub?: string;
+  accent?: StatAccent;
+}) {
   return (
     <div className="rounded-md border border-border bg-background px-3 py-2">
       <div className="font-mono text-[10px] text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-mono text-sm text-foreground tabular-nums">
+      <div
+        className={`mt-0.5 font-mono tabular-nums ${
+          sub ? "text-xl" : "text-sm"
+        } ${ACCENTS[accent]}`}
+      >
         {value}
       </div>
+      {sub ? (
+        <div className="font-mono text-[10px] text-muted-foreground">{sub}</div>
+      ) : null}
     </div>
   );
 }
@@ -46,7 +75,7 @@ export function DataTable({
   rows,
 }: {
   headers: string[];
-  rows: (string | number | null)[][];
+  rows: (ReactNode | null)[][];
 }) {
   if (rows.length === 0) {
     return (

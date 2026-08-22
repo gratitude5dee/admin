@@ -10,6 +10,25 @@ export interface UsersResponse {
   }[];
 }
 
+export interface TimeseriesPoint {
+  ts: string;
+  runs: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number;
+  box_seconds: number;
+  starts: number;
+  stops: number;
+}
+
+export interface TimeseriesResponse {
+  window_days: number;
+  since: string;
+  bucket: "hour" | "day";
+  user_id: string | null;
+  points: TimeseriesPoint[];
+}
+
 export interface TokensResponse {
   window_days: number;
   since: string;
