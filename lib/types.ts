@@ -1,0 +1,102 @@
+/** Response shapes of the airv2 control-plane admin endpoints (metadata only). */
+
+export interface TokensResponse {
+  window_days: number;
+  since: string;
+  totals: { prompt_tokens: number; completion_tokens: number; cost_usd: number };
+  users: {
+    user_id: string;
+    runs: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cost_usd: number;
+  }[];
+}
+
+export interface ConnectorsResponse {
+  statuses: string[];
+  totals: {
+    pending: number;
+    active: number;
+    revoked: number;
+    error: number;
+    unknown: number;
+  };
+  toolkits: {
+    toolkit: string;
+    pending: number;
+    active: number;
+    revoked: number;
+    error: number;
+    total: number;
+    users: number;
+  }[];
+}
+
+export interface BoxesResponse {
+  window_days: number;
+  since: string;
+  totals: {
+    boxes: number;
+    by_state: Record<string, number>;
+    starts: number;
+    stops: number;
+    box_seconds: number;
+  };
+  users: {
+    user_id: string;
+    state: string | null;
+    provider: string | null;
+    template_version: string | null;
+    updated_at: string | null;
+    starts: number;
+    stops: number;
+    runs: number;
+    box_seconds: number;
+  }[];
+}
+
+export interface OpsResponse {
+  starts: {
+    hour: number;
+    day: number;
+    hourly_ceiling: number;
+    daily_ceiling: number;
+    alerts: string[];
+  };
+  lines?: unknown[];
+  [key: string]: unknown;
+}
+
+export interface CostsResponse {
+  window_days?: number;
+  users: {
+    user_id: string;
+    render_cents: number;
+    storage_bytes: number;
+    storage_cents_month: number;
+    ad_spend_cents: number;
+    ad_ceiling_cents: number | null;
+  }[];
+  [key: string]: unknown;
+}
+
+export interface TracesResponse {
+  count: number;
+  receipts: Record<string, string | number | null>[];
+}
+
+export interface FeedbackResponse {
+  unavailable?: boolean;
+  counts: Record<string, number>;
+  items: {
+    id: string;
+    user_id: string;
+    kind: string | null;
+    title: string | null;
+    body: string | null;
+    status: string;
+    created_at: string;
+  }[];
+}
