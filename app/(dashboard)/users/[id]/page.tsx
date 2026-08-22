@@ -63,7 +63,7 @@ export default async function UserDetailPage({
       ? boxes.data.users.find((row) => row.user_id === userId)
       : undefined;
   const feedbackItems =
-    feedback.error === null
+    feedback.error === null && feedback.data.items
       ? feedback.data.items.filter((item) => item.user_id === userId)
       : [];
   const points = series.error === null ? series.data.points : [];
