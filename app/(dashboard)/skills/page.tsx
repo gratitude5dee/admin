@@ -1,5 +1,6 @@
 import { adminGetSafe } from "@/lib/controlPlane";
 import type { BoxesResponse } from "@/lib/types";
+import { fetchUserDirectory } from "@/lib/users";
 import { DataTable, LoadError, Panel } from "@/components/panel";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,10 @@ const TEMPLATE_SKILLS = [
 ];
 
 export default async function SkillsPage() {
-  const boxes = await adminGetSafe<BoxesResponse>("/api/admin/boxes?days=30");
+  const [boxes, directory] = await Promise.all([
+    adminGetSafe<BoxesResponse>("/api/admin/boxes?days=30"),
+    fetchUserDirectory(),
+  ]);
 
   return (
     <>
@@ -52,7 +56,7 @@ export default async function SkillsPage() {
           <DataTable
             headers={["user", "template version", "state", "runs (30d)"]}
             rows={boxes.data.users.map((user) => [
-              user.user_id,
+              directory.label(user.user_id),
               user.template_version,
               user.state,
               user.runs,

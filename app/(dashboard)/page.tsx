@@ -1,6 +1,8 @@
 import { adminGetSafe } from "@/lib/controlPlane";
+import { fetchUserDirectory } from "@/lib/users";
 import type { BoxesResponse, OpsResponse } from "@/lib/types";
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
+import { BreakdownPieChart, LabeledBarChart } from "@/components/charts";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +11,10 @@ function hours(seconds: number): string {
 }
 
 export default async function BoxesPage() {
-  const [ops, boxes] = await Promise.all([
+  const [ops, boxes, directory] = await Promise.all([
     adminGetSafe<OpsResponse>("/api/admin/ops"),
     adminGetSafe<BoxesResponse>("/api/admin/boxes?days=7"),
+    fetchUserDirectory(),
   ]);
 
   return (
@@ -49,6 +52,31 @@ export default async function BoxesPage() {
                 value={hours(boxes.data.totals.box_seconds)}
               />
             </div>
+            <div className="mb-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="mb-1 font-mono text-[10px] text-muted-foreground">
+                  box hours by user
+                </p>
+                <LabeledBarChart
+                  valueLabel="box hours"
+                  color="green"
+                  data={boxes.data.users.slice(0, 12).map((user) => ({
+                    label: directory.label(user.user_id),
+                    value: Number((user.box_seconds / 3600).toFixed(2)),
+                  }))}
+                />
+              </div>
+              <div>
+                <p className="mb-1 font-mono text-[10px] text-muted-foreground">
+                  boxes by state
+                </p>
+                <BreakdownPieChart
+                  data={Object.entries(boxes.data.totals.by_state).map(
+                    ([label, value]) => ({ label, value })
+                  )}
+                />
+              </div>
+            </div>
             <DataTable
               headers={[
                 "user",
@@ -61,7 +89,7 @@ export default async function BoxesPage() {
                 "box time",
               ]}
               rows={boxes.data.users.map((user) => [
-                user.user_id,
+                directory.label(user.user_id),
                 user.state,
                 user.provider,
                 user.template_version,

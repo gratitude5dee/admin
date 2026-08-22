@@ -1,6 +1,8 @@
 import { adminGetSafe } from "@/lib/controlPlane";
 import type { CostsResponse, TokensResponse } from "@/lib/types";
+import { fetchUserDirectory } from "@/lib/users";
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
+import { LabeledBarChart } from "@/components/charts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +15,10 @@ function gb(bytes: number): string {
 }
 
 export default async function CostsPage() {
-  const [costs, tokens] = await Promise.all([
+  const [costs, tokens, directory] = await Promise.all([
     adminGetSafe<CostsResponse>("/api/admin/costs"),
     adminGetSafe<TokensResponse>("/api/admin/tokens?days=30"),
+    fetchUserDirectory(),
   ]);
 
   return (
@@ -24,13 +27,23 @@ export default async function CostsPage() {
         {tokens.error !== null ? (
           <LoadError error={tokens.error} />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <Stat
-              label="total LLM cost"
-              value={`$${tokens.data.totals.cost_usd.toFixed(2)}`}
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <Stat
+                label="total LLM cost"
+                value={`$${tokens.data.totals.cost_usd.toFixed(2)}`}
+              />
+              <Stat label="users" value={String(tokens.data.users.length)} />
+            </div>
+            <LabeledBarChart
+              valueLabel="LLM cost ($)"
+              color="orange"
+              data={tokens.data.users.slice(0, 12).map((user) => ({
+                label: directory.label(user.user_id),
+                value: Number(user.cost_usd.toFixed(4)),
+              }))}
             />
-            <Stat label="users" value={String(tokens.data.users.length)} />
-          </div>
+          </>
         )}
       </Panel>
       <Panel title="Creative costs (30 days)" note="From /api/admin/costs — render spend, storage estimate, ad spend against ceilings.">
@@ -47,7 +60,7 @@ export default async function CostsPage() {
               "ad ceiling",
             ]}
             rows={costs.data.users.map((user) => [
-              user.user_id,
+              directory.label(user.user_id),
               dollars(user.render_cents),
               gb(user.storage_bytes),
               dollars(user.storage_cents_month),

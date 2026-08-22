@@ -1,4 +1,5 @@
 import { adminGetSafe } from "@/lib/controlPlane";
+import { fetchUserDirectory } from "@/lib/users";
 import type { TokensResponse } from "@/lib/types";
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
 import { TokensChart } from "@/components/tokens-chart";
@@ -6,7 +7,10 @@ import { TokensChart } from "@/components/tokens-chart";
 export const dynamic = "force-dynamic";
 
 export default async function TokensPage() {
-  const tokens = await adminGetSafe<TokensResponse>("/api/admin/tokens?days=30");
+  const [tokens, directory] = await Promise.all([
+    adminGetSafe<TokensResponse>("/api/admin/tokens?days=30"),
+    fetchUserDirectory(),
+  ]);
 
   return (
     <Panel title="Token usage (30 days)" note="From /api/admin/tokens — gateway-metered prompt/completion tokens and cost per user.">
@@ -30,7 +34,7 @@ export default async function TokensPage() {
           </div>
           <TokensChart
             data={tokens.data.users.slice(0, 12).map((user) => ({
-              user: user.user_id.slice(0, 8),
+              user: directory.label(user.user_id),
               prompt: user.prompt_tokens,
               completion: user.completion_tokens,
             }))}
@@ -39,7 +43,7 @@ export default async function TokensPage() {
             <DataTable
               headers={["user", "runs", "prompt", "completion", "total", "cost"]}
               rows={tokens.data.users.map((user) => [
-                user.user_id,
+                directory.label(user.user_id),
                 user.runs,
                 user.prompt_tokens.toLocaleString(),
                 user.completion_tokens.toLocaleString(),
