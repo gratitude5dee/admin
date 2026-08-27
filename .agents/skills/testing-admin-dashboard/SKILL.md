@@ -15,7 +15,13 @@ The dashboard (this repo) proxies server-side to airv2 admin APIs. No live contr
    DASHBOARD_PASSWORD=<any test password>
    ```
    All env vars are server-only (no NEXT_PUBLIC_). SESSION_SECRET defaults to DASHBOARD_PASSWORD.
-2. Run a mock control plane on :4600 that checks `Authorization: Bearer <ADMIN_API_KEY>` and serves `/api/admin/{ops,boxes,tokens,connectors,traces,costs,feedback}`. Response shapes: `lib/types.ts` here and `/home/ubuntu/repos/airv2/apps/web/app/api/admin/*/route.ts`. `/api/admin/traces` must support `format=json|csv|jsonl` and `user_id` filtering. A ready-made mock existed at `mock-cp.mjs` (untracked test artifact) — recreate if missing.
+   GOTCHA: the org secret `ADMIN_API_KEY` is present in the ambient shell env and
+   Next.js gives process env precedence over `.env.local` — the dev server will
+   send the REAL key upstream regardless of what `.env.local` says. Either start
+   the mock with `MOCK_ADMIN_KEY="$ADMIN_API_KEY"` or launch `npm run dev` with
+   `env -u ADMIN_API_KEY`. If every panel shows "control plane returned 401",
+   this is why (check the mock's request log for which Bearer arrived).
+2. Run a mock control plane on :4600 that checks `Authorization: Bearer <ADMIN_API_KEY>` and serves `/api/admin/{ops,boxes,tokens,connectors,traces,costs,feedback,learning,timeseries,users}` (Boxes `/` now also fetches `timeseries` + `users`; `/learning` needs a `LearningResponse`-shaped body — see `lib/types.ts`). Response shapes: `lib/types.ts` here and `/home/ubuntu/repos/airv2/apps/web/app/api/admin/*/route.ts`. `/api/admin/traces` must support `format=json|csv|jsonl` and `user_id` filtering. A ready-made mock existed at `mock-cp.mjs` (untracked test artifact) — recreate if missing.
 3. `npm run dev` → http://localhost:3000.
 
 ## Key behaviors to verify
