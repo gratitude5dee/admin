@@ -4,7 +4,7 @@
  * When WANDB_API_KEY is configured, exported receipt metadata is also
  * mirrored to W&B Weave (airv2's weave.ts pattern); dormant otherwise.
  */
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { adminFetch } from "@/lib/controlPlane";
 import { mirrorReceipts, weaveEnabled } from "@/lib/weave";
 
@@ -48,7 +48,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }
       })
       .filter((row): row is Record<string, unknown> => row !== null);
-    void mirrorReceipts(receipts);
+    // metadata mirror after the response is sent; a bare fire-and-forget
+    // promise gets dropped when the serverless function is frozen
+    after(() => mirrorReceipts(receipts));
   }
 
   return new NextResponse(body, {
