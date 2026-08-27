@@ -3,12 +3,31 @@
  * receipt METADATA only, dormant by default. Without WANDB_API_KEY this
  * module performs zero egress. When a key is configured, receipts exported
  * through the dashboard's traces proxy are mirrored as a run-history batch
- * via the W&B public API. Receipts are content-free by construction on the
+ * via the W&B public API: resolve the key's entity (viewer), upsert the
+ * project + a per-export run, then stream the receipt rows through the run's
+ * file_stream endpoint. Receipts are content-free by construction on the
  * control plane; transcripts never exist on this path.
  */
 
+const WANDB_API = "https://api.wandb.ai";
+
 export function weaveEnabled(): boolean {
   return Boolean(process.env.WANDB_API_KEY);
+}
+
+async function graphql(
+  auth: string,
+  query: string,
+  variables: Record<string, string>
+): Promise<Record<string, unknown> | null> {
+  const response = await fetch(`${WANDB_API}/graphql`, {
+    method: "POST",
+    headers: { Authorization: auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!response.ok) return null;
+  const parsed = (await response.json()) as { data?: Record<string, unknown> };
+  return parsed.data ?? null;
 }
 
 /** Best-effort, fire-and-forget: mirroring must never fail or slow the
@@ -18,21 +37,38 @@ export async function mirrorReceipts(
 ): Promise<void> {
   const apiKey = process.env.WANDB_API_KEY;
   if (!apiKey || receipts.length === 0) return;
+  const auth = `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`;
+  const project = process.env.WANDB_PROJECT ?? "wzrd-admin";
   try {
-    await fetch("https://api.wandb.ai/files/stream", {
+    const viewer = await graphql(auth, "query { viewer { entity } }", {});
+    const entity = (viewer?.["viewer"] as { entity?: string } | undefined)
+      ?.entity;
+    if (!entity) return;
+    await graphql(
+      auth,
+      "mutation($entity: String!, $project: String!) { upsertModel(input: { entityName: $entity, name: $project }) { model { name } } }",
+      { entity, project }
+    );
+    const run = `export-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    await graphql(
+      auth,
+      "mutation($entity: String!, $project: String!, $run: String!) { upsertBucket(input: { entityName: $entity, modelName: $project, name: $run }) { bucket { name } } }",
+      { entity, project, run }
+    );
+    await fetch(`${WANDB_API}/files/${entity}/${project}/${run}/file_stream`, {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: auth, "Content-Type": "application/json" },
       body: JSON.stringify({
-        project: process.env.WANDB_PROJECT ?? "wzrd-admin",
         files: {
           "wandb-history.jsonl": {
             offset: 0,
-            content: receipts.map((row) => JSON.stringify(row)),
+            content: receipts.map((row, index) =>
+              JSON.stringify({ ...row, _step: index })
+            ),
           },
         },
+        complete: true,
+        exitcode: 0,
       }),
     });
   } catch {
