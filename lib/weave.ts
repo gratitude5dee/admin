@@ -26,7 +26,11 @@ async function graphql(
     body: JSON.stringify({ query, variables }),
   });
   if (!response.ok) return null;
-  const parsed = (await response.json()) as { data?: Record<string, unknown> };
+  const parsed = (await response.json()) as {
+    data?: Record<string, unknown>;
+    errors?: unknown[];
+  };
+  if (parsed.errors && parsed.errors.length > 0) return null;
   return parsed.data ?? null;
 }
 
@@ -44,17 +48,36 @@ export async function mirrorReceipts(
     const entity = (viewer?.["viewer"] as { entity?: string } | undefined)
       ?.entity;
     if (!entity) return;
-    await graphql(
+    // Only create the project when it doesn't exist yet: upsertModel on an
+    // existing project makes the immediately-following upsertBucket fail
+    // server-side ("driver: bad connection"), so an unconditional upsert
+    // would break every mirror after the first.
+    const existing = await graphql(
       auth,
-      "mutation($entity: String!, $project: String!) { upsertModel(input: { entityName: $entity, name: $project }) { model { name } } }",
+      "query($entity: String!, $project: String!) { project(entityName: $entity, name: $project) { name } }",
       { entity, project }
     );
+    if (!existing?.["project"]) {
+      await graphql(
+        auth,
+        "mutation($entity: String!, $project: String!) { upsertModel(input: { entityName: $entity, name: $project }) { model { name } } }",
+        { entity, project }
+      );
+    }
     const run = `export-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    await graphql(
+    let created = await graphql(
       auth,
       "mutation($entity: String!, $project: String!, $run: String!) { upsertBucket(input: { entityName: $entity, modelName: $project, name: $run }) { bucket { name } } }",
       { entity, project, run }
     );
+    if (!created?.["upsertBucket"]) {
+      created = await graphql(
+        auth,
+        "mutation($entity: String!, $project: String!, $run: String!) { upsertBucket(input: { entityName: $entity, modelName: $project, name: $run }) { bucket { name } } }",
+        { entity, project, run }
+      );
+    }
+    if (!created?.["upsertBucket"]) return;
     await fetch(`${WANDB_API}/files/${entity}/${project}/${run}/file_stream`, {
       method: "POST",
       headers: { Authorization: auth, "Content-Type": "application/json" },
