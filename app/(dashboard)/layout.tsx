@@ -8,6 +8,7 @@ const NAV = [
   { href: "/traces", label: "Traces" },
   { href: "/costs", label: "Costs" },
   { href: "/feedback", label: "Feedback" },
+  { href: "/learning", label: "Learning" },
 ];
 
 export default function DashboardLayout({
