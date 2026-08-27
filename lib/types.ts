@@ -116,6 +116,72 @@ export interface TracesResponse {
   receipts: Record<string, string | number | null>[];
 }
 
+/** /api/admin/learning — the V10 learning plan plus content-free receipts. */
+export interface LearningResponse {
+  plan: {
+    version: string;
+    promotionPolicyVersion: string;
+    objective: string;
+    invariants: readonly string[];
+    modes: readonly { mode: string; description: string }[];
+    hardGates: readonly string[];
+    softScoreDimensions: readonly string[];
+    milestones: readonly {
+      id: string;
+      title: string;
+      outcome: string;
+      status: "shipped" | "in_progress" | "planned";
+    }[];
+    centralAllowlist: readonly string[];
+    centralProhibitions: readonly string[];
+  };
+  modes: Record<string, number>;
+  feedback: {
+    total: number;
+    last24h: number;
+    forwarded: number;
+    byReason: Record<string, number>;
+  };
+  experiments: {
+    recent: {
+      experiment_id: string;
+      status: string;
+      backend: string | null;
+      os_class: string | null;
+      sample_count: number | null;
+      task_success_delta: number | null;
+      task_success_delta_lower95: number | null;
+      hard_gate_failures: number | null;
+      tokens: number | null;
+      cost_usd: number | null;
+      latency_ms_p95: number | null;
+      error_class: string | null;
+      created_at: string;
+      finished_at: string | null;
+    }[];
+    byStatus: Record<string, number>;
+  };
+  profiles: {
+    profile_id: string;
+    status: string;
+    rollback_reason: string | null;
+    activated_at: string | null;
+    rolled_back_at: string | null;
+    created_at: string;
+  }[];
+  events: {
+    recent: {
+      event_type: string;
+      status: string | null;
+      backend: string | null;
+      error_class: string | null;
+      rollback_reason: string | null;
+      occurred_at: string;
+    }[];
+    byType: Record<string, number>;
+  };
+}
+
 export interface FeedbackResponse {
   unavailable?: boolean;
   counts: Record<string, number>;
