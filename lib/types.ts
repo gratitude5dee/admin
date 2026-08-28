@@ -75,6 +75,8 @@ export interface BoxesResponse {
   };
   users: {
     user_id: string;
+    username?: string | null;
+    provider_box_id?: string | null;
     state: string | null;
     provider: string | null;
     template_version: string | null;
@@ -180,6 +182,60 @@ export interface LearningResponse {
     }[];
     byType: Record<string, number>;
   };
+}
+
+/** /api/admin/fleet/* — template releases, channel pointers, sync jobs. */
+export interface FleetRelease {
+  id: string;
+  version: string;
+  git_sha: string;
+  hermes_ref: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface FleetChannel {
+  name: "dev" | "prod";
+  release_id: string | null;
+  template_box_id: string | null;
+  updated_at: string;
+}
+
+export interface FleetSyncJob {
+  id: string;
+  channel: "dev" | "prod";
+  release_id: string;
+  state: "canary" | "rolling" | "paused" | "done" | "failed" | "aborted";
+  include_hermes: boolean;
+  wave_size: number;
+  canary_box_ids: string[];
+  failure_threshold: number;
+  failures: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FleetSyncJobBox {
+  job_id: string;
+  provider_box_id: string;
+  state: string;
+  is_canary: boolean;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface FleetReleasesResponse {
+  releases: FleetRelease[];
+}
+
+export interface FleetChannelsResponse {
+  channels: FleetChannel[];
+}
+
+export interface FleetSyncResponse {
+  jobs: FleetSyncJob[];
+  latest_job_boxes: FleetSyncJobBox[];
 }
 
 export interface FeedbackResponse {
