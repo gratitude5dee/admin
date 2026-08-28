@@ -9,9 +9,10 @@ import "server-only";
 export class ControlPlaneError extends Error {
   constructor(
     public readonly status: number,
-    public readonly path: string
+    public readonly path: string,
+    message?: string
   ) {
-    super(`control plane ${status} on ${path}`);
+    super(message ?? `control plane ${status} on ${path}`);
   }
 }
 
@@ -32,6 +33,39 @@ export async function adminFetch(path: string): Promise<Response> {
     headers: { Authorization: `Bearer ${apiKey()}` },
     cache: "no-store",
   });
+}
+
+export async function adminSend<T>(
+  path: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch(`${baseUrl()}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    let message = `control plane returned ${response.status}`;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload.error) message = payload.error;
+    } catch {
+      // non-JSON error body — keep the status message
+    }
+    throw new ControlPlaneError(response.status, path, message);
+  }
+  const text = await response.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 export async function adminGet<T>(path: string): Promise<T> {
