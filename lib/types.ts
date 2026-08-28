@@ -238,6 +238,31 @@ export interface FleetSyncResponse {
   latest_job_boxes: FleetSyncJobBox[];
 }
 
+export interface OnboardingResponse {
+  steps: string[];
+  stale_after_ms: number;
+  totals: {
+    users: number;
+    mirrored: number;
+    cold: number;
+    stale: number;
+    completed: number;
+    cards_sent: number;
+  };
+  funnel: Record<string, { done: number; skipped: number; todo: number }>;
+  users: {
+    user_id: string;
+    username: string | null;
+    created_at: string | null;
+    done: number;
+    skipped: number;
+    todo: number;
+    next_step: string | null;
+    mirror_refreshed_at: string | null;
+    card_sent_at: string | null;
+  }[];
+}
+
 export interface FeedbackResponse {
   unavailable?: boolean;
   counts: Record<string, number>;
