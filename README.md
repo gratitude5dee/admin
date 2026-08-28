@@ -15,6 +15,8 @@ prompts, or memory are stored or displayed (constraint C4).
 - **Tokens** — gateway-metered prompt/completion tokens and cost
   (`/api/admin/tokens`)
 - **Connectors** — connection health per toolkit/status (`/api/admin/connectors`)
+- **Onboarding** — step funnel, status-mirror health, and per-user progress
+  (`/api/admin/onboarding`)
 - **Skills** — template skill set and per-user template versions; per-skill
   usage is not metered control-plane-side (C4)
 - **Traces** — receipt metadata with CSV/JSONL export (`/api/admin/traces`)
