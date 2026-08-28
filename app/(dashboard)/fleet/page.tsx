@@ -104,12 +104,17 @@ export default async function FleetPage({
               label={`${channel.name} channel`}
               value={releaseById.get(channel.release_id ?? "")?.version ?? "—"}
               accent={
-                latest && channel.release_id === latest.id ? "green" : "orange"
+                latest === null
+                  ? "blue"
+                  : channel.release_id === latest.id
+                    ? "green"
+                    : "orange"
               }
             />
           ))}
           <SyncButton disabled={jobActive} />
         </div>
+        {releases.error !== null ? <LoadError error={releases.error} /> : null}
         {channels.error !== null ? <LoadError error={channels.error} /> : null}
       </Panel>
       <Panel
