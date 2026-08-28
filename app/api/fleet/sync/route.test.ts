@@ -116,6 +116,24 @@ describe("POST /api/fleet/sync", () => {
     );
   });
 
+  it("treats a 2xx response with an empty body as success", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/admin/fleet/releases")) {
+        return new Response(JSON.stringify(RELEASES));
+      }
+      if ((init?.method ?? "GET") === "GET") {
+        return new Response(
+          JSON.stringify({ channels: [{ name: "prod", release_id: "rel-old" }] })
+        );
+      }
+      return new Response(null, { status: 204 });
+    });
+
+    const response = await POST(request({ action: "sync", channel: "prod" }));
+    expect(new URL(response.headers.get("location")!).search).toBe("");
+  });
+
   it("patches the active job for pause/resume/abort", async () => {
     let patched: unknown = null;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

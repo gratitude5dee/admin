@@ -59,7 +59,13 @@ export async function adminSend<T>(
     }
     throw new ControlPlaneError(response.status, path, message);
   }
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 export async function adminGet<T>(path: string): Promise<T> {
