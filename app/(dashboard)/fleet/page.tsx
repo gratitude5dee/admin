@@ -258,7 +258,7 @@ export default async function FleetPage({
 
       <Panel
         title="Box drift"
-        note="Each box against the release its channel points at. baseline is the template release sync-box.sh last converged it to; hermes is the pinned Hermes ref. 'behind' means the channel moved past the box, 'hermes behind' means the release only differs in its Hermes pin, 'unsynced' means no fleet sync has ever recorded a baseline for it. A stopped box is normal (idle); it is resumed for its sync and stopped again."
+        note="Each box against the release its channel points at. baseline is the template release sync-box.sh last converged it to; hermes is the pinned Hermes ref. 'behind' means the channel moved past the box, 'hermes behind' means the release only differs in its Hermes pin, 'unsynced' means no fleet sync has ever recorded a baseline for it, 'no target' means the box's channel has no release to compare against. A stopped box is normal (idle); it is resumed for its sync and stopped again."
       >
         {boxes.error !== null ? (
           <LoadError error={boxes.error} />
@@ -267,7 +267,13 @@ export default async function FleetPage({
             <div className="flex flex-wrap items-end gap-4">
               <Stat label="boxes" value={String(fleet.length)} />
               {(
-                ["current", "behind", "hermes behind", "unsynced"] as const
+                [
+                  "current",
+                  "behind",
+                  "hermes behind",
+                  "unsynced",
+                  "no target",
+                ] as const
               ).map((drift) => (
                 <Stat
                   key={drift}
