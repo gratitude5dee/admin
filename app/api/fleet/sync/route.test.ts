@@ -92,6 +92,63 @@ describe("POST /api/fleet/sync", () => {
     expect(posts).toEqual(["https://air.example.com/api/admin/fleet/sync"]);
   });
 
+  it("passes the chosen canary and repins Hermes only when the release pins one", async () => {
+    const bodies: unknown[] = [];
+    const withHermes = {
+      releases: [{ ...RELEASES.releases[0], hermes_ref: "29112bef" }],
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url.endsWith("/api/admin/fleet/releases")) {
+        return new Response(JSON.stringify(withHermes));
+      }
+      if (url.endsWith("/api/admin/fleet/channels")) {
+        return new Response(
+          JSON.stringify({ channels: [{ name: "prod", release_id: "rel-new" }] })
+        );
+      }
+      if (url.endsWith("/api/admin/fleet/sync") && method === "POST") {
+        bodies.push(JSON.parse(String(init?.body)));
+      }
+      return new Response(JSON.stringify({ ok: true }));
+    });
+
+    await POST(
+      request({
+        action: "sync",
+        channel: "prod",
+        canary_box_id: "bx_canary",
+        include_hermes: "on",
+      })
+    );
+    expect(bodies).toEqual([
+      { channel: "prod", canary_box_ids: ["bx_canary"], include_hermes: true },
+    ]);
+  });
+
+  it("leaves include_hermes off when the release has no hermes_ref", async () => {
+    let body: unknown = null;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/admin/fleet/releases")) {
+        return new Response(JSON.stringify(RELEASES));
+      }
+      if (url.endsWith("/api/admin/fleet/channels")) {
+        return new Response(
+          JSON.stringify({ channels: [{ name: "prod", release_id: "rel-new" }] })
+        );
+      }
+      if (init?.method === "POST") body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ ok: true }));
+    });
+
+    await POST(
+      request({ action: "sync", channel: "prod", include_hermes: "on" })
+    );
+    expect(body).toEqual({ channel: "prod" });
+  });
+
   it("surfaces upstream errors in the redirect query", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);

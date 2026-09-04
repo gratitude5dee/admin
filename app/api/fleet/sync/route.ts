@@ -1,9 +1,11 @@
 /**
  * Fleet sync actions, proxied server-side so ADMIN_API_KEY never reaches the
  * browser. POST with action=sync points the channel at the newest release
- * (if it is behind) and starts a sync job; pause/resume/abort patch the
- * active job. Always redirects back to /fleet, carrying any upstream error
- * in the query string.
+ * (if it is behind) and starts a sync job — canary-first when a canary box is
+ * chosen, repinning Hermes when the release carries a hermes_ref and the
+ * operator left "include Hermes" on; pause/resume/abort patch the active job.
+ * Always redirects back to /fleet, carrying any upstream error in the query
+ * string.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { adminGet, adminSend, ControlPlaneError } from "@/lib/controlPlane";
@@ -25,7 +27,15 @@ function back(request: NextRequest, error?: string): NextResponse {
   return NextResponse.redirect(url, 303);
 }
 
-async function syncToLatest(channel: string): Promise<void> {
+interface SyncOptions {
+  canaryBoxId: string | null;
+  includeHermes: boolean;
+}
+
+async function syncToLatest(
+  channel: string,
+  options: SyncOptions
+): Promise<void> {
   const [{ releases }, { channels }] = await Promise.all([
     adminGet<FleetReleasesResponse>("/api/admin/fleet/releases"),
     adminGet<FleetChannelsResponse>("/api/admin/fleet/channels"),
@@ -39,7 +49,13 @@ async function syncToLatest(channel: string): Promise<void> {
       release_id: latest.id,
     });
   }
-  await adminSend("/api/admin/fleet/sync", "POST", { channel });
+  await adminSend("/api/admin/fleet/sync", "POST", {
+    channel,
+    ...(options.canaryBoxId ? { canary_box_ids: [options.canaryBoxId] } : {}),
+    ...(options.includeHermes && latest.hermes_ref
+      ? { include_hermes: true }
+      : {}),
+  });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -51,7 +67,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   try {
     if (action === "sync") {
-      await syncToLatest(channel);
+      const canary = String(form.get("canary_box_id") ?? "").trim();
+      await syncToLatest(channel, {
+        canaryBoxId: canary || null,
+        includeHermes: form.get("include_hermes") === "on",
+      });
     } else if (JOB_ACTIONS.has(action)) {
       const jobId = String(form.get("job_id") ?? "");
       if (!jobId) return back(request, "job_id required");
