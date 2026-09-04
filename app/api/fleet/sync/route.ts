@@ -4,6 +4,9 @@
  * (if it is behind) and starts a sync job — canary-first when a canary box is
  * chosen, repinning Hermes when the release carries a hermes_ref and the
  * operator left "include Hermes" on; pause/resume/abort patch the active job.
+ * If the job cannot be started after the channel was advanced, the pointer is
+ * put back (unless someone else has moved it since) so a rejected sync never
+ * leaves the whole channel reading "behind" with no rollout in flight.
  * Always redirects back to /fleet, carrying any upstream error in the query
  * string.
  */
@@ -42,20 +45,50 @@ async function syncToLatest(
   ]);
   const latest = releases[0];
   if (!latest) throw new Error("no template releases cut yet");
-  const pointer = channels.find((c) => c.name === channel);
-  if (pointer?.release_id !== latest.id) {
+  const previous = channels.find((c) => c.name === channel)?.release_id ?? null;
+  const advanced = previous !== latest.id;
+  if (advanced) {
     await adminSend("/api/admin/fleet/channels", "POST", {
       channel,
       release_id: latest.id,
     });
   }
-  await adminSend("/api/admin/fleet/sync", "POST", {
-    channel,
-    ...(options.canaryBoxId ? { canary_box_ids: [options.canaryBoxId] } : {}),
-    ...(options.includeHermes && latest.hermes_ref
-      ? { include_hermes: true }
-      : {}),
-  });
+  try {
+    await adminSend("/api/admin/fleet/sync", "POST", {
+      channel,
+      ...(options.canaryBoxId
+        ? { canary_box_ids: [options.canaryBoxId] }
+        : {}),
+      ...(options.includeHermes && latest.hermes_ref
+        ? { include_hermes: true }
+        : {}),
+    });
+  } catch (error) {
+    if (advanced && previous) {
+      await restorePointer(channel, previous, latest.id);
+    }
+    throw error;
+  }
+}
+
+async function restorePointer(
+  channel: string,
+  previous: string,
+  advancedTo: string
+): Promise<void> {
+  try {
+    const { channels } = await adminGet<FleetChannelsResponse>(
+      "/api/admin/fleet/channels"
+    );
+    const current = channels.find((c) => c.name === channel)?.release_id;
+    if (current !== advancedTo) return;
+    await adminSend("/api/admin/fleet/channels", "POST", {
+      channel,
+      release_id: previous,
+    });
+  } catch {
+    // the original failure is what the operator needs to see
+  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
