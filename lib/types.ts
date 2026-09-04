@@ -79,8 +79,15 @@ export interface BoxesResponse {
     provider_box_id?: string | null;
     state: string | null;
     provider: string | null;
+    /** Release channel the box follows (dev | prod). */
+    channel?: string | null;
+    /** Hermes ref pinned by the last include_hermes sync (was the template
+     * release before the fleet ledger split it out into baseline_version). */
     template_version: string | null;
-    updated_at: string | null;
+    /** Template release sync-box.sh last converged the box to. */
+    baseline_version?: string | null;
+    baseline_synced_at?: string | null;
+    last_active_at?: string | null;
     starts: number;
     stops: number;
     runs: number;
@@ -218,6 +225,7 @@ export interface FleetSyncJob {
 export interface FleetSyncJobBox {
   job_id: string;
   provider_box_id: string;
+  /** pending | syncing | ok | failed | deferred (busy box, retried next idle). */
   state: string;
   is_canary: boolean;
   error: string | null;

@@ -13,6 +13,7 @@ import {
 } from "@/components/charts";
 import { RangeToggle, rangeDays } from "@/components/range-toggle";
 import { UserLink } from "@/components/user-link";
+import { shortRef } from "@/lib/fleet";
 
 export const dynamic = "force-dynamic";
 
@@ -145,7 +146,7 @@ export default async function BoxesPage({
         )}
       </Panel>
 
-      <Panel title={`Box usage (${days}d)`} note="From /api/admin/boxes — current state, wakes/stops, metered box seconds. Click a user to drill down.">
+      <Panel title={`Box usage (${days}d)`} note="From /api/admin/boxes — current state, wakes/stops, metered box seconds. release is the template release the box was last synced to and hermes its pinned Hermes ref; drift against the channel is on the Fleet page. Click a user to drill down.">
         {boxes.error !== null ? (
           <LoadError error={boxes.error} />
         ) : (
@@ -189,7 +190,9 @@ export default async function BoxesPage({
                 "user",
                 "state",
                 "provider",
-                "template",
+                "channel",
+                "release",
+                "hermes",
                 "starts",
                 "stops",
                 "runs",
@@ -203,7 +206,9 @@ export default async function BoxesPage({
                 />,
                 user.state,
                 user.provider,
-                user.template_version,
+                user.channel ?? null,
+                user.baseline_version ?? null,
+                shortRef(user.template_version),
                 user.starts,
                 user.stops,
                 user.runs,
