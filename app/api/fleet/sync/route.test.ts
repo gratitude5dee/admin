@@ -184,8 +184,20 @@ describe("POST /api/fleet/sync", () => {
       }
       if (url.endsWith("/api/admin/fleet/channels")) {
         if (method === "POST") {
-          const body = JSON.parse(String(init?.body)) as { release_id: string };
+          const body = JSON.parse(String(init?.body)) as {
+            release_id: string;
+            expected_release_id?: string | null;
+          };
           channelPosts.push(body);
+          if (
+            body.expected_release_id !== undefined &&
+            body.expected_release_id !== pointer
+          ) {
+            return new Response(
+              JSON.stringify({ error: `channel prod moved to ${pointer}` }),
+              { status: 409 }
+            );
+          }
           pointer = body.release_id;
           return new Response(JSON.stringify({ ok: true }));
         }
@@ -207,14 +219,17 @@ describe("POST /api/fleet/sync", () => {
     ).toBe("no requested canary box is syncable on prod");
     expect(channelPosts).toEqual([
       { channel: "prod", release_id: "rel-new" },
-      { channel: "prod", release_id: "rel-old" },
+      { channel: "prod", release_id: "rel-old", expected_release_id: "rel-new" },
     ]);
     expect(pointer).toBe("rel-old");
   });
 
-  it("leaves the channel alone on failure if someone else moved it meanwhile", async () => {
+  it("keeps the original error when the rollback is refused because the channel moved on", async () => {
+    // The control plane owns the compare-and-set: the pointer moves to
+    // rel-other between our advance and the rollback, so the conditional
+    // restore 409s and the newer target survives.
+    let pointer = "rel-old";
     const channelPosts: unknown[] = [];
-    let reads = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -223,23 +238,40 @@ describe("POST /api/fleet/sync", () => {
       }
       if (url.endsWith("/api/admin/fleet/channels")) {
         if (method === "POST") {
-          channelPosts.push(JSON.parse(String(init?.body)));
+          const body = JSON.parse(String(init?.body)) as {
+            release_id: string;
+            expected_release_id?: string | null;
+          };
+          channelPosts.push(body);
+          if (
+            body.expected_release_id !== undefined &&
+            body.expected_release_id !== pointer
+          ) {
+            return new Response(
+              JSON.stringify({ error: `channel prod moved to ${pointer}` }),
+              { status: 409 }
+            );
+          }
+          pointer = body.release_id;
           return new Response(JSON.stringify({ ok: true }));
         }
-        reads += 1;
         return new Response(
-          JSON.stringify({
-            channels: [
-              { name: "prod", release_id: reads === 1 ? "rel-old" : "rel-other" },
-            ],
-          })
+          JSON.stringify({ channels: [{ name: "prod", release_id: pointer }] })
         );
       }
+      pointer = "rel-other";
       return new Response(JSON.stringify({ error: "boom" }), { status: 500 });
     });
 
-    await POST(request({ action: "sync", channel: "prod" }));
-    expect(channelPosts).toEqual([{ channel: "prod", release_id: "rel-new" }]);
+    const response = await POST(request({ action: "sync", channel: "prod" }));
+    expect(
+      new URL(response.headers.get("location")!).searchParams.get("error")
+    ).toBe("boom");
+    expect(channelPosts).toEqual([
+      { channel: "prod", release_id: "rel-new" },
+      { channel: "prod", release_id: "rel-old", expected_release_id: "rel-new" },
+    ]);
+    expect(pointer).toBe("rel-other");
   });
 
   it("does not touch the channel on failure when it was already at the latest release", async () => {

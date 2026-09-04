@@ -5,8 +5,9 @@
  * chosen, repinning Hermes when the release carries a hermes_ref and the
  * operator left "include Hermes" on; pause/resume/abort patch the active job.
  * If the job cannot be started after the channel was advanced, the pointer is
- * put back (unless someone else has moved it since) so a rejected sync never
- * leaves the whole channel reading "behind" with no rollout in flight.
+ * put back with a compare-and-set on the release we advanced it to, so a
+ * rejected sync never leaves the whole channel reading "behind" with no
+ * rollout in flight and a move someone else made meanwhile is never undone.
  * Always redirects back to /fleet, carrying any upstream error in the query
  * string.
  */
@@ -77,17 +78,14 @@ async function restorePointer(
   advancedTo: string
 ): Promise<void> {
   try {
-    const { channels } = await adminGet<FleetChannelsResponse>(
-      "/api/admin/fleet/channels"
-    );
-    const current = channels.find((c) => c.name === channel)?.release_id;
-    if (current !== advancedTo) return;
     await adminSend("/api/admin/fleet/channels", "POST", {
       channel,
       release_id: previous,
+      expected_release_id: advancedTo,
     });
   } catch {
-    // the original failure is what the operator needs to see
+    // a 409 means the channel moved on; either way the original failure is
+    // what the operator needs to see
   }
 }
 
