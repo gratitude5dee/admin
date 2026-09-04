@@ -4,10 +4,14 @@
  * (if it is behind) and starts a sync job — canary-first when a canary box is
  * chosen, repinning Hermes when the release carries a hermes_ref and the
  * operator left "include Hermes" on; pause/resume/abort patch the active job.
- * If the job cannot be started after the channel was advanced, the pointer is
- * put back with a compare-and-set on the release we advanced it to, so a
- * rejected sync never leaves the whole channel reading "behind" with no
- * rollout in flight and a move someone else made meanwhile is never undone.
+ * Both channel writes are compare-and-set against the release we last saw:
+ * the advance is conditional on the pointer we read, and if the job cannot
+ * be started afterwards the pointer is put back conditional on the release
+ * we advanced it to. A rejected sync therefore never leaves the whole
+ * channel reading "behind" with no rollout in flight, and a move another
+ * operator made meanwhile is never undone — if they already pointed the
+ * channel at the latest release we sync without owning (or rolling back)
+ * their move; if they pointed it elsewhere we stop and ask for a refresh.
  * Always redirects back to /fleet, carrying any upstream error in the query
  * string.
  */
@@ -47,12 +51,9 @@ async function syncToLatest(
   const latest = releases[0];
   if (!latest) throw new Error("no template releases cut yet");
   const previous = channels.find((c) => c.name === channel)?.release_id ?? null;
-  const advanced = previous !== latest.id;
+  let advanced = previous !== latest.id;
   if (advanced) {
-    await adminSend("/api/admin/fleet/channels", "POST", {
-      channel,
-      release_id: latest.id,
-    });
+    advanced = await advancePointer(channel, previous, latest.id);
   }
   try {
     await adminSend("/api/admin/fleet/sync", "POST", {
@@ -70,6 +71,39 @@ async function syncToLatest(
     }
     throw error;
   }
+}
+
+/**
+ * Points the channel at `to` only if it still reads `from`. Returns whether
+ * this request performed the move (and so owns the rollback). A concurrent
+ * operator who already moved it to `to` yields false; one who moved it
+ * anywhere else is an error the operator must see.
+ */
+async function advancePointer(
+  channel: string,
+  from: string | null,
+  to: string
+): Promise<boolean> {
+  try {
+    await adminSend("/api/admin/fleet/channels", "POST", {
+      channel,
+      release_id: to,
+      expected_release_id: from,
+    });
+    return true;
+  } catch (error) {
+    if (!(error instanceof ControlPlaneError) || error.status !== 409) {
+      throw error;
+    }
+  }
+  const { channels } = await adminGet<FleetChannelsResponse>(
+    "/api/admin/fleet/channels"
+  );
+  const current = channels.find((c) => c.name === channel)?.release_id ?? null;
+  if (current === to) return false;
+  throw new Error(
+    `channel ${channel} was moved by someone else since the page loaded; refresh and retry`
+  );
 }
 
 async function restorePointer(
