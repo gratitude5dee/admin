@@ -4,6 +4,7 @@ import { fetchUserDirectory } from "@/lib/users";
 import type {
   BoxesResponse,
   FeedbackResponse,
+  HealthResponse,
   TimeseriesResponse,
   TokensResponse,
   TracesResponse,
@@ -11,6 +12,8 @@ import type {
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
 import { ActivityAreaChart } from "@/components/charts";
 import { RangeToggle, rangeDays } from "@/components/range-toggle";
+import { tenkiSwitchEligibility } from "@/lib/providerSwitch";
+import { UserHealthPanel } from "@/components/user-health-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +25,6 @@ const TRACE_COLUMNS = [
   "cost_usd",
   "box_seconds",
 ] as const;
-
 function hours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
@@ -32,13 +34,23 @@ export default async function UserDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{
+    days?: string;
+    error?: string;
+    switched?: string;
+    health_memory?: string;
+    health_wake?: string;
+  }>;
 }) {
   const { id } = await params;
-  const days = rangeDays((await searchParams).days);
+  const queryParams = await searchParams;
+  const days = rangeDays(queryParams.days);
   const userId = id;
   const query = encodeURIComponent(userId);
-  const [directory, series, tokens, boxes, traces, feedback] =
+  const memoryRequested = queryParams.health_memory === "1";
+  const wakeRequested =
+    memoryRequested && queryParams.health_wake === "1";
+  const [directory, series, tokens, boxes, traces, feedback, health] =
     await Promise.all([
       fetchUserDirectory(),
       adminGetSafe<TimeseriesResponse>(
@@ -50,6 +62,11 @@ export default async function UserDetailPage({
         `/api/admin/traces?limit=100&user_id=${query}`
       ),
       adminGetSafe<FeedbackResponse>("/api/admin/feedback"),
+      adminGetSafe<HealthResponse>(
+        `/api/admin/health?days=${days}&user_id=${query}&memory=${
+          memoryRequested ? 1 : 0
+        }&wake=${wakeRequested ? 1 : 0}`,
+      ),
     ]);
 
   const user = directory.users.find((entry) => entry.user_id === userId);
@@ -67,6 +84,9 @@ export default async function UserDetailPage({
       ? feedback.data.items.filter((item) => item.user_id === userId)
       : [];
   const points = series.error === null ? series.data.points : [];
+  const provider = boxRow?.provider ?? null;
+  const environment = boxRow?.environment ?? null;
+  const switchEligibility = tenkiSwitchEligibility(boxRow);
 
   return (
     <>
@@ -91,6 +111,83 @@ export default async function UserDetailPage({
         </div>
         <RangeToggle days={days} basePath={`/users/${query}`} />
       </div>
+
+      {queryParams.error ? (
+        <p className="mb-4 font-mono text-[11px] text-red-400">
+          {queryParams.error}
+        </p>
+      ) : null}
+      {queryParams.switched === "tenki" ? (
+        <p className="mb-4 font-mono text-[11px] text-emerald-400">
+          Provider switched to Tenki.
+        </p>
+      ) : null}
+
+      <Panel
+        title="Compute provider"
+        note="Manual per-user override only. Default provisioning and every untouched user stay on ascii.dev Box."
+      >
+        {boxes.error !== null ? (
+          <LoadError error={boxes.error} />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat label="provider" value={provider ?? "—"} accent="blue" />
+            <Stat label="environment" value={environment ?? "—"} />
+            <Stat
+              label="provider box id"
+              value={boxRow?.provider_box_id ?? "—"}
+            />
+          </div>
+        )}
+        {boxes.error === null && switchEligibility.eligible ? (
+          <form
+            method="post"
+            action="/api/users/provider"
+            className="mt-4 rounded-md border border-orange-400/30 bg-orange-400/5 p-3"
+          >
+            <input type="hidden" name="user_id" value={userId} />
+            <input
+              type="hidden"
+              name="box_id"
+              value={boxRow?.provider_box_id ?? ""}
+            />
+            <input type="hidden" name="provider" value="tenki" />
+            <input type="hidden" name="days" value={String(days)} />
+            <p className="font-mono text-[11px] text-orange-300">
+              This creates a fresh Tenki machine, repoints the user, then
+              permanently deletes the current Box and its local filesystem.
+            </p>
+            <label className="mt-3 flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <input
+                required
+                type="checkbox"
+                name="confirm"
+                value="replace"
+                className="size-3"
+              />
+              I understand this replaces and deletes the current Box.
+            </label>
+            <button
+              type="submit"
+              className="mt-3 rounded-md border border-orange-400/50 bg-orange-400/10 px-3 py-1.5 font-mono text-[11px] text-orange-200 hover:bg-orange-400/20"
+            >
+              Switch this user to Tenki
+            </button>
+          </form>
+        ) : boxes.error === null ? (
+          <p className="mt-3 font-mono text-[11px] text-muted-foreground">
+            {switchEligibility.message}
+          </p>
+        ) : null}
+      </Panel>
+
+      <UserHealthPanel
+        health={health}
+        userId={userId}
+        days={days}
+        memoryRequested={memoryRequested}
+        wakeRequested={wakeRequested}
+      />
 
       <Panel
         title={`Usage (${days}d)`}

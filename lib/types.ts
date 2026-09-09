@@ -79,6 +79,7 @@ export interface BoxesResponse {
     provider_box_id?: string | null;
     state: string | null;
     provider: string | null;
+    environment?: string | null;
     /** Release channel the box follows (dev | prod). */
     channel?: string | null;
     /** Hermes ref pinned by the last include_hermes sync (was the template
@@ -93,6 +94,105 @@ export interface BoxesResponse {
     runs: number;
     box_seconds: number;
   }[];
+}
+
+export interface HealthResponse {
+  user_id: string;
+  window_days: number;
+  since: string;
+  checked_at: string;
+  memory: {
+    enabled: boolean;
+    status:
+      | "not_checked"
+      | "asleep"
+      | "healthy"
+      | "unhealthy"
+      | "busy"
+      | "unavailable";
+    checked_at: string | null;
+    woke: boolean;
+    healthy: boolean;
+    resources: number;
+    memories: number | null;
+    workspace_bytes: number;
+    pending: number | null;
+    truncated: boolean;
+  };
+  hermes: {
+    runs: number;
+    success: number;
+    failed: number;
+    other: number;
+    open: number;
+    stuck: number;
+    last_run_at: string | null;
+    last_success_at: string | null;
+    last_failure_at: string | null;
+    p95_latency_ms: number | null;
+    failure_outcomes: Record<string, number>;
+  };
+  connectors: {
+    total: number;
+    counts: Record<string, number>;
+    connections: {
+      provider: string | null;
+      toolkit: string | null;
+      status: string;
+      connected_at: string | null;
+    }[];
+  };
+  transport: {
+    total: number;
+    received: number;
+    dispatched: number;
+    failed: number;
+    ignored: number;
+    queued: number;
+    oldest_queued_at: string | null;
+    oldest_queued_age_seconds: number | null;
+    latest_received_at: string | null;
+  };
+  compute: {
+    provider: string | null;
+    provider_box_id: string | null;
+    environment: string | null;
+    state: string | null;
+    channel: string;
+    template_version: string | null;
+    baseline_version: string | null;
+    baseline_synced_at: string | null;
+    target_version: string | null;
+    target_hermes_ref: string | null;
+    channel_updated_at: string | null;
+    drift: "current" | "behind" | "hermes_behind" | "unsynced" | "no_target";
+    last_active_at: string | null;
+    stop_after: string | null;
+    created_at: string | null;
+    starts: number;
+    stops: number;
+    last_event_state: string | null;
+    last_event_at: string | null;
+    replacement_claimed_at: string | null;
+    replacement_claim_status: "none" | "active" | "stale";
+  };
+  spend: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    gateway_cost_usd: number;
+    speed_tier: string | null;
+    spend_mtd_usd: number | null;
+    monthly_cap_usd: number | null;
+    monthly_cap_ratio: number | null;
+    render_cents: number;
+    storage_bytes: number;
+    storage_cents_month: number;
+    ad_spend_cents: number;
+    ad_ceiling_cents: number | null;
+    cortex_calls: number;
+    cortex_errors: number;
+  };
 }
 
 export interface OpsResponse {
