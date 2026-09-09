@@ -15,6 +15,99 @@ const receipts = [
   { user_id: U2, ts: "2026-02-10T12:00:00Z", kind: "run", status: "ok", label: "calendar-plan", cost_usd: 0.2, box_seconds: 512 },
 ];
 
+function health(userId, memoryRequested, wakeRequested) {
+  return {
+    user_id: userId,
+    window_days: 7,
+    since: "2026-02-03T00:00:00Z",
+    checked_at: "2026-02-10T12:00:00Z",
+    memory: {
+      enabled: true,
+      status: memoryRequested ? "healthy" : "not_checked",
+      checked_at: memoryRequested ? "2026-02-10T12:00:00Z" : null,
+      woke: wakeRequested,
+      healthy: memoryRequested,
+      resources: 4,
+      memories: 12,
+      workspace_bytes: 524288,
+      pending: 0,
+      truncated: false,
+    },
+    hermes: {
+      runs: 7,
+      success: 6,
+      failed: 1,
+      other: 0,
+      open: 0,
+      stuck: 0,
+      last_run_at: "2026-02-10T11:00:00Z",
+      last_success_at: "2026-02-10T11:00:10Z",
+      last_failure_at: "2026-02-09T18:00:05Z",
+      p95_latency_ms: 820,
+      failure_outcomes: { failed: 1 },
+    },
+    connectors: {
+      total: 2,
+      counts: { active: 2 },
+      connections: [
+        { provider: "composio", toolkit: "gmail", status: "active", connected_at: "2026-02-01T00:00:00Z" },
+        { provider: "composio", toolkit: "googlecalendar", status: "active", connected_at: "2026-02-01T00:00:00Z" },
+      ],
+    },
+    transport: {
+      total: 9,
+      received: 1,
+      dispatched: 7,
+      failed: 1,
+      ignored: 0,
+      queued: 1,
+      oldest_queued_at: "2026-02-10T11:59:30Z",
+      oldest_queued_age_seconds: 30,
+      latest_received_at: "2026-02-10T11:59:30Z",
+    },
+    compute: {
+      provider: "ascii",
+      provider_box_id: userId === U1 ? "bx_alpha" : "bx_bravo",
+      environment: "ubuntu",
+      state: userId === U1 ? "ready" : "stopped",
+      channel: "prod",
+      template_version: userId === U1 ? HERMES_NEW : HERMES_OLD,
+      baseline_version: userId === U1 ? "2026.02.10-abc1234" : "2026.01.28-9876fed",
+      baseline_synced_at: "2026-02-10T09:30:00Z",
+      target_version: "2026.02.10-abc1234",
+      target_hermes_ref: HERMES_NEW,
+      channel_updated_at: "2026-02-10T09:05:00Z",
+      drift: userId === U1 ? "current" : "behind",
+      last_active_at: "2026-02-10T10:00:00Z",
+      stop_after: null,
+      created_at: "2026-01-01T00:00:00Z",
+      starts: 5,
+      stops: 4,
+      last_event_state: userId === U1 ? "ready" : "stopped",
+      last_event_at: "2026-02-10T10:00:00Z",
+      replacement_claimed_at: null,
+      replacement_claim_status: "none",
+    },
+    spend: {
+      prompt_tokens: 100000,
+      completion_tokens: 30000,
+      total_tokens: 130000,
+      gateway_cost_usd: 2.11,
+      speed_tier: "balanced",
+      spend_mtd_usd: 3,
+      monthly_cap_usd: 10,
+      monthly_cap_ratio: 0.3,
+      render_cents: 120,
+      storage_bytes: 5000000,
+      storage_cents_month: 1,
+      ad_spend_cents: 0,
+      ad_ceiling_cents: 1000,
+      cortex_calls: 4,
+      cortex_errors: 0,
+    },
+  };
+}
+
 const data = {
   "/api/admin/ops": {
     starts: { hour: 3, day: 17, hourly_ceiling: 20, daily_ceiling: 100, alerts: [] },
@@ -141,6 +234,16 @@ http
       }
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({ user_id: userId ?? null, count: rows.length, receipts: rows }));
+    }
+    if (url.pathname === "/api/admin/health") {
+      const userId = url.searchParams.get("user_id") ?? U1;
+      const body = health(
+        userId,
+        url.searchParams.get("memory") === "1",
+        url.searchParams.get("wake") === "1",
+      );
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(body));
     }
     if (req.method === "POST" || req.method === "PATCH") {
       let raw = "";
