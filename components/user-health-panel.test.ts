@@ -77,7 +77,6 @@ const health: HealthResponse = {
     created_at: null,
     starts: 1,
     stops: 0,
-    failures: 0,
     last_event_state: "ready",
     last_event_at: null,
     replacement_claimed_at: null,

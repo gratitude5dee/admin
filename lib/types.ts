@@ -171,7 +171,6 @@ export interface HealthResponse {
     created_at: string | null;
     starts: number;
     stops: number;
-    failures: number;
     last_event_state: string | null;
     last_event_at: string | null;
     replacement_claimed_at: string | null;

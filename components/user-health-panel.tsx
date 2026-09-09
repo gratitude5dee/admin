@@ -165,7 +165,6 @@ export function UserHealthPanel({
                   ["ignored", health.data.transport.ignored],
                   ["latest inbound", timestamp(health.data.transport.latest_received_at)],
                   ["starts / stops", `${health.data.compute.starts} / ${health.data.compute.stops}`],
-                  ["lifecycle failures", health.data.compute.failures],
                   ["last event", health.data.compute.last_event_state],
                   ["created", timestamp(health.data.compute.created_at)],
                   ["replacement claim", health.data.compute.replacement_claim_status],
