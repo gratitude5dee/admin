@@ -25,8 +25,8 @@ const data = {
     since: "2026-02-03T00:00:00Z",
     totals: { boxes: 2, by_state: { started: 1, stopped: 1 }, starts: 9, stops: 8, box_seconds: 3600 },
     users: [
-      { user_id: U1, username: "alice", provider_box_id: "bx_alpha", state: "ready", provider: "morph", channel: "prod", template_version: HERMES_NEW, baseline_version: "2026.02.10-abc1234", baseline_synced_at: "2026-02-10T09:30:00Z", last_active_at: "2026-02-10T10:00:00Z", starts: 5, stops: 4, runs: 12, box_seconds: 2400 },
-      { user_id: U2, username: "bob", provider_box_id: "bx_bravo", state: "stopped", provider: "morph", channel: "prod", template_version: HERMES_OLD, baseline_version: "2026.01.28-9876fed", baseline_synced_at: "2026-01-28T12:00:00Z", last_active_at: "2026-02-09T18:00:00Z", starts: 4, stops: 4, runs: 7, box_seconds: 1200 },
+      { user_id: U1, username: "alice", provider_box_id: "bx_alpha", state: "ready", provider: "ascii", environment: "ubuntu", channel: "prod", template_version: HERMES_NEW, baseline_version: "2026.02.10-abc1234", baseline_synced_at: "2026-02-10T09:30:00Z", last_active_at: "2026-02-10T10:00:00Z", starts: 5, stops: 4, runs: 12, box_seconds: 2400 },
+      { user_id: U2, username: "bob", provider_box_id: "bx_bravo", state: "stopped", provider: "ascii", environment: "ubuntu", channel: "prod", template_version: HERMES_OLD, baseline_version: "2026.01.28-9876fed", baseline_synced_at: "2026-01-28T12:00:00Z", last_active_at: "2026-02-09T18:00:00Z", starts: 4, stops: 4, runs: 7, box_seconds: 1200 },
     ],
   },
   "/api/admin/fleet/releases": {

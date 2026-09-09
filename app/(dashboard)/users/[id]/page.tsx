@@ -22,6 +22,7 @@ const TRACE_COLUMNS = [
   "cost_usd",
   "box_seconds",
 ] as const;
+const SWITCHABLE_BOX_STATES = new Set(["ready", "idle", "stopped"]);
 
 function hours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
@@ -32,10 +33,11 @@ export default async function UserDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ days?: string; error?: string; switched?: string }>;
 }) {
   const { id } = await params;
-  const days = rangeDays((await searchParams).days);
+  const queryParams = await searchParams;
+  const days = rangeDays(queryParams.days);
   const userId = id;
   const query = encodeURIComponent(userId);
   const [directory, series, tokens, boxes, traces, feedback] =
@@ -67,6 +69,16 @@ export default async function UserDetailPage({
       ? feedback.data.items.filter((item) => item.user_id === userId)
       : [];
   const points = series.error === null ? series.data.points : [];
+  const provider = boxRow
+    ? (boxRow.provider ??
+      (boxRow.provider_box_id?.startsWith("tk_") ? "tenki" : "ascii"))
+    : null;
+  const environment = boxRow ? (boxRow.environment ?? "ubuntu") : null;
+  const canSwitchToTenki =
+    provider === "ascii" &&
+    environment === "ubuntu" &&
+    Boolean(boxRow?.provider_box_id) &&
+    SWITCHABLE_BOX_STATES.has(boxRow?.state ?? "");
 
   return (
     <>
@@ -91,6 +103,74 @@ export default async function UserDetailPage({
         </div>
         <RangeToggle days={days} basePath={`/users/${query}`} />
       </div>
+
+      {queryParams.error ? (
+        <p className="mb-4 font-mono text-[11px] text-red-400">
+          {queryParams.error}
+        </p>
+      ) : null}
+      {queryParams.switched === "tenki" ? (
+        <p className="mb-4 font-mono text-[11px] text-emerald-400">
+          Provider switched to Tenki.
+        </p>
+      ) : null}
+
+      <Panel
+        title="Compute provider"
+        note="Manual per-user override only. Default provisioning and every untouched user stay on ascii.dev Box."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Stat label="provider" value={provider ?? "—"} accent="blue" />
+          <Stat label="environment" value={environment ?? "—"} />
+          <Stat label="provider box id" value={boxRow?.provider_box_id ?? "—"} />
+        </div>
+        {canSwitchToTenki ? (
+          <form
+            method="post"
+            action="/api/users/provider"
+            className="mt-4 rounded-md border border-orange-400/30 bg-orange-400/5 p-3"
+          >
+            <input type="hidden" name="user_id" value={userId} />
+            <input
+              type="hidden"
+              name="box_id"
+              value={boxRow?.provider_box_id ?? ""}
+            />
+            <input type="hidden" name="provider" value="tenki" />
+            <input type="hidden" name="days" value={String(days)} />
+            <p className="font-mono text-[11px] text-orange-300">
+              This creates a fresh Tenki machine, repoints the user, then
+              permanently deletes the current Box and its local filesystem.
+            </p>
+            <label className="mt-3 flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <input
+                required
+                type="checkbox"
+                name="confirm"
+                value="replace"
+                className="size-3"
+              />
+              I understand this replaces and deletes the current Box.
+            </label>
+            <button
+              type="submit"
+              className="mt-3 rounded-md border border-orange-400/50 bg-orange-400/10 px-3 py-1.5 font-mono text-[11px] text-orange-200 hover:bg-orange-400/20"
+            >
+              Switch this user to Tenki
+            </button>
+          </form>
+        ) : (
+          <p className="mt-3 font-mono text-[11px] text-muted-foreground">
+            {provider === "tenki"
+              ? "This user is already on Tenki."
+              : !boxRow
+                ? "This user has no compute to switch."
+                : environment !== "ubuntu"
+                  ? "Tenki currently supports Ubuntu users only."
+                  : "Wait until the current Box is ready, idle, or stopped before switching."}
+          </p>
+        )}
+      </Panel>
 
       <Panel
         title={`Usage (${days}d)`}

@@ -79,6 +79,7 @@ export interface BoxesResponse {
     provider_box_id?: string | null;
     state: string | null;
     provider: string | null;
+    environment?: string | null;
     /** Release channel the box follows (dev | prod). */
     channel?: string | null;
     /** Hermes ref pinned by the last include_hermes sync (was the template
