@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminSend, ControlPlaneError } from "@/lib/controlPlane";
+import {
+  adminGet,
+  adminSend,
+  ControlPlaneError,
+} from "@/lib/controlPlane";
+import { tenkiSwitchEligibility } from "@/lib/providerSwitch";
+import type { BoxesResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +48,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    const boxes = await adminGet<BoxesResponse>("/api/admin/boxes?days=1");
+    const currentBox = boxes.users.find((box) => box.user_id === userId);
+    if (!currentBox || currentBox.provider_box_id !== boxId) {
+      return back(request, userId, days, {
+        error: "current Box ownership could not be verified",
+      });
+    }
+    const eligibility = tenkiSwitchEligibility(currentBox);
+    if (!eligibility.eligible) {
+      return back(request, userId, days, {
+        error: eligibility.message ?? "Box is not eligible for replacement",
+      });
+    }
     await adminSend("/api/admin/boxes/reprovision", "POST", {
       user_id: userId,
       box_id: boxId,

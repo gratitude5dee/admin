@@ -4,6 +4,7 @@ import { fetchUserDirectory } from "@/lib/users";
 import type {
   BoxesResponse,
   FeedbackResponse,
+  HealthResponse,
   TimeseriesResponse,
   TokensResponse,
   TracesResponse,
@@ -11,6 +12,8 @@ import type {
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
 import { ActivityAreaChart } from "@/components/charts";
 import { RangeToggle, rangeDays } from "@/components/range-toggle";
+import { tenkiSwitchEligibility } from "@/lib/providerSwitch";
+import { UserHealthPanel } from "@/components/user-health-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +25,6 @@ const TRACE_COLUMNS = [
   "cost_usd",
   "box_seconds",
 ] as const;
-const SWITCHABLE_BOX_STATES = new Set(["ready", "idle", "stopped"]);
-
 function hours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
@@ -33,14 +34,23 @@ export default async function UserDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; error?: string; switched?: string }>;
+  searchParams: Promise<{
+    days?: string;
+    error?: string;
+    switched?: string;
+    health_memory?: string;
+    health_wake?: string;
+  }>;
 }) {
   const { id } = await params;
   const queryParams = await searchParams;
   const days = rangeDays(queryParams.days);
   const userId = id;
   const query = encodeURIComponent(userId);
-  const [directory, series, tokens, boxes, traces, feedback] =
+  const memoryRequested = queryParams.health_memory === "1";
+  const wakeRequested =
+    memoryRequested && queryParams.health_wake === "1";
+  const [directory, series, tokens, boxes, traces, feedback, health] =
     await Promise.all([
       fetchUserDirectory(),
       adminGetSafe<TimeseriesResponse>(
@@ -52,6 +62,11 @@ export default async function UserDetailPage({
         `/api/admin/traces?limit=100&user_id=${query}`
       ),
       adminGetSafe<FeedbackResponse>("/api/admin/feedback"),
+      adminGetSafe<HealthResponse>(
+        `/api/admin/health?days=${days}&user_id=${query}&memory=${
+          memoryRequested ? 1 : 0
+        }&wake=${wakeRequested ? 1 : 0}`,
+      ),
     ]);
 
   const user = directory.users.find((entry) => entry.user_id === userId);
@@ -69,16 +84,9 @@ export default async function UserDetailPage({
       ? feedback.data.items.filter((item) => item.user_id === userId)
       : [];
   const points = series.error === null ? series.data.points : [];
-  const provider = boxRow
-    ? (boxRow.provider ??
-      (boxRow.provider_box_id?.startsWith("tk_") ? "tenki" : "ascii"))
-    : null;
-  const environment = boxRow ? (boxRow.environment ?? "ubuntu") : null;
-  const canSwitchToTenki =
-    provider === "ascii" &&
-    environment === "ubuntu" &&
-    Boolean(boxRow?.provider_box_id) &&
-    SWITCHABLE_BOX_STATES.has(boxRow?.state ?? "");
+  const provider = boxRow?.provider ?? null;
+  const environment = boxRow?.environment ?? null;
+  const switchEligibility = tenkiSwitchEligibility(boxRow);
 
   return (
     <>
@@ -119,12 +127,19 @@ export default async function UserDetailPage({
         title="Compute provider"
         note="Manual per-user override only. Default provisioning and every untouched user stay on ascii.dev Box."
       >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat label="provider" value={provider ?? "—"} accent="blue" />
-          <Stat label="environment" value={environment ?? "—"} />
-          <Stat label="provider box id" value={boxRow?.provider_box_id ?? "—"} />
-        </div>
-        {canSwitchToTenki ? (
+        {boxes.error !== null ? (
+          <LoadError error={boxes.error} />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat label="provider" value={provider ?? "—"} accent="blue" />
+            <Stat label="environment" value={environment ?? "—"} />
+            <Stat
+              label="provider box id"
+              value={boxRow?.provider_box_id ?? "—"}
+            />
+          </div>
+        )}
+        {boxes.error === null && switchEligibility.eligible ? (
           <form
             method="post"
             action="/api/users/provider"
@@ -159,18 +174,20 @@ export default async function UserDetailPage({
               Switch this user to Tenki
             </button>
           </form>
-        ) : (
+        ) : boxes.error === null ? (
           <p className="mt-3 font-mono text-[11px] text-muted-foreground">
-            {provider === "tenki"
-              ? "This user is already on Tenki."
-              : !boxRow
-                ? "This user has no compute to switch."
-                : environment !== "ubuntu"
-                  ? "Tenki currently supports Ubuntu users only."
-                  : "Wait until the current Box is ready, idle, or stopped before switching."}
+            {switchEligibility.message}
           </p>
-        )}
+        ) : null}
       </Panel>
+
+      <UserHealthPanel
+        health={health}
+        userId={userId}
+        days={days}
+        memoryRequested={memoryRequested}
+        wakeRequested={wakeRequested}
+      />
 
       <Panel
         title={`Usage (${days}d)`}

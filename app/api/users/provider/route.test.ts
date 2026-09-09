@@ -5,6 +5,32 @@ vi.mock("server-only", () => ({}));
 
 import { POST } from "./route";
 
+const eligibleBoxes = {
+  window_days: 1,
+  since: "2026-09-08T00:00:00.000Z",
+  totals: {
+    boxes: 1,
+    by_state: { ready: 1 },
+    starts: 0,
+    stops: 0,
+    box_seconds: 0,
+  },
+  users: [
+    {
+      user_id: "u1",
+      provider_box_id: "bx_old",
+      state: "ready",
+      provider: "ascii",
+      environment: "ubuntu",
+      template_version: null,
+      starts: 0,
+      stops: 0,
+      runs: 0,
+      box_seconds: 0,
+    },
+  ],
+};
+
 function request(fields: Record<string, string>): NextRequest {
   const form = new URLSearchParams(fields);
   return new NextRequest("https://admin.example.com/api/users/provider", {
@@ -61,10 +87,16 @@ describe("POST /api/users/provider", () => {
   });
 
   it("sends the switch through the server-side admin client", async () => {
-    let call: { url: string; authorization: string | null; body: unknown } | null =
-      null;
+    let postCall: {
+      url: string;
+      authorization: string | null;
+      body: unknown;
+    } | null = null;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      call = {
+      if (!init?.method) {
+        return Response.json(eligibleBoxes);
+      }
+      postCall = {
         url: String(input),
         authorization: new Headers(init?.headers).get("authorization"),
         body: JSON.parse(String(init?.body)),
@@ -89,7 +121,7 @@ describe("POST /api/users/provider", () => {
       }),
     );
     expect(response.status).toBe(303);
-    expect(call).toEqual({
+    expect(postCall).toEqual({
       url: "https://air.example.com/api/admin/boxes/reprovision",
       authorization: "Bearer test-admin-key",
       body: {
@@ -104,12 +136,66 @@ describe("POST /api/users/provider", () => {
     expect(location.searchParams.get("switched")).toBe("tenki");
   });
 
-  it("surfaces a control-plane rejection to the operator", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ error: "box is already being replaced" }), {
-        status: 409,
+  it("rejects a crafted request when control-plane metadata is ineligible", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        ...eligibleBoxes,
+        users: [
+          {
+            ...eligibleBoxes.users[0],
+            provider: null,
+            environment: null,
+          },
+        ],
       }),
     );
+
+    const response = await POST(
+      request({
+        user_id: "u1",
+        box_id: "bx_old",
+        provider: "tenki",
+        confirm: "replace",
+      }),
+    );
+
+    expect(locationOf(response).searchParams.get("error")).toMatch(
+      /Provider metadata/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a box that is not owned by the submitted user", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(eligibleBoxes));
+
+    const response = await POST(
+      request({
+        user_id: "u1",
+        box_id: "bx_other",
+        provider: "tenki",
+        confirm: "replace",
+      }),
+    );
+
+    expect(locationOf(response).searchParams.get("error")).toBe(
+      "current Box ownership could not be verified",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a control-plane rejection to the operator", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(eligibleBoxes))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: "box is already being replaced" }),
+          {
+            status: 409,
+          },
+        ),
+      );
     const response = await POST(
       request({
         user_id: "u1",
