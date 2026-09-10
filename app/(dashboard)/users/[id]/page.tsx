@@ -179,6 +179,16 @@ export default async function UserDetailPage({
             {switchEligibility.message}
           </p>
         ) : null}
+        <p className="mt-3 font-mono text-[11px] text-muted-foreground">
+          A data-preserving move copies the box instead of replacing it:{" "}
+          <Link
+            href={`/migrations?user_id=${encodeURIComponent(userId)}`}
+            className="text-sky-400 hover:underline"
+          >
+            open migration controls
+          </Link>
+          .
+        </p>
       </Panel>
 
       <UserHealthPanel
