@@ -1,5 +1,6 @@
 // Mock airv2 control plane for local dashboard testing.
 import http from "node:http";
+import { appendFileSync } from "node:fs";
 
 const KEY = process.env.MOCK_ADMIN_KEY || "test-admin-key";
 const U1 = "11111111-1111-4111-8111-111111111111";
@@ -211,13 +212,79 @@ const data = {
 
 const CSV_COLS = ["user_id", "ts", "kind", "status", "label", "cost_usd", "box_seconds"];
 
+// Local UI fixtures only; no real compute actions are performed.
+function migration(user_id, phase, direction = "box_to_tenki") {
+  return {
+    id: `migration-${user_id}`, user_id, phase, direction, leg: "out",
+    wake_at: "2026-09-10T12:05:00Z", error_code: null,
+    work_paused_at: "2026-09-10T12:01:00Z",
+    work_resumed_at: "2026-09-10T12:01:30Z",
+    created_at: "2026-09-10T12:00:00Z", updated_at: "2026-09-10T12:04:00Z",
+    request_key: null, source_provider: "ascii", target_provider: "tenki",
+    source_box_id: "bx_source", candidate_box_id: "tk_candidate",
+    expected_generation: 7, worker_lease_until: null, error_detail: null,
+    cancel_requested_at: null, cleanup_approved_at: null,
+    route_committed_at: null, activated_at: null,
+    retention_until: "2026-09-11T12:00:00Z", completed_at: null, stats: {},
+  };
+}
+const migrations = new Map([
+  [U1, migration(U1, "precopy")],
+  [U2, migration(U2, "completed")],
+  ...["waiting_for_idle", "cleanup_pending", "route_committed", "activating", "observing"].map(
+    phase => [phase, migration(phase, phase)],
+  ),
+  ["post-error", migration("post-error", "precopy")],
+]);
+data["/api/admin/users"] = {
+  users: [ [U1, "alice"], [U2, "bob"] ].map(([user_id, username]) => ({
+    user_id, username, status: "active", created_at: "2026-01-01T00:00:00Z", handles: [],
+  })),
+};
+data["/api/admin/timeseries"] = { bucket: "day", points: [] };
+
 http
   .createServer((req, res) => {
     const url = new URL(req.url, "http://localhost");
-    console.log(`${req.method} ${req.url} auth=${req.headers.authorization ?? "none"}`);
+    console.log(`${req.method} ${req.url} auth_valid=${req.headers.authorization === `Bearer ${KEY}`}`);
     if (req.headers.authorization !== `Bearer ${KEY}`) {
       res.writeHead(401, { "content-type": "application/json" });
       return res.end(JSON.stringify({ error: "unauthorized" }));
+    }
+    if (url.pathname === "/api/admin/migrations") {
+      const send = (code, body) => {
+        res.writeHead(code, { "content-type": "application/json" });
+        res.end(JSON.stringify(body));
+      };
+      if (req.method === "POST") {
+        let raw = "";
+        req.on("data", chunk => raw += chunk);
+        return req.on("end", () => {
+          const body = JSON.parse(raw);
+          const code = body.user_id === "post-error" ? 409 : 200;
+          appendFileSync("/tmp/migration-posts.jsonl", JSON.stringify({body, code, auth_valid: true}) + "\n");
+          if (code === 409) return send(code, {error: "mock_cutover_refused: live operations still draining"});
+          if (body.op === "prepare") migrations.set(body.user_id, migration(body.user_id, "waiting_for_idle", body.direction));
+          const m = migrations.get(body.user_id);
+          if (m && body.op === "cutover") m.phase = "observing";
+          if (m && body.op === "cancel") migrations.delete(body.user_id);
+          if (m && body.op === "return") { m.phase = "return_requested"; m.leg = "back"; }
+          if (m && body.op === "cleanup") m.cleanup_approved_at = "2026-09-10T12:06:00Z";
+          send(200, {ok: true});
+        });
+      }
+      const userId = url.searchParams.get("user_id");
+      if (!userId) return send(200, { migrations: [...migrations.values()] });
+      const m = migrations.get(userId) ?? null;
+      return send(200, {
+        migration: m,
+        targets: m ? [
+          {role: "source", provider: "ascii", provider_box_id: "bx_source", hosted_url: null, credentials_sealed: null},
+          {role: "candidate", provider: "tenki", provider_box_id: "tk_candidate", hosted_url: null, credentials_sealed: "mock-sealed-value"},
+        ] : [],
+        liveOperations: m ? 2 : 0,
+        control: {admission: "open", routing_generation: 7, active_migration_id: m?.id ?? null, fence_epoch: 3},
+      });
     }
     if (url.pathname === "/api/admin/traces") {
       const format = url.searchParams.get("format") ?? "json";

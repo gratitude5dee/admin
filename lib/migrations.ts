@@ -130,6 +130,10 @@ export function cleanupPending(m: MigrationListRow): boolean {
   return m.phase === "cleanup_pending";
 }
 
+export function directionLabel(direction: MigrationDirection): string {
+  return direction === "box_to_tenki" ? "Box → Tenki" : "Tenki → Box";
+}
+
 export function phaseAccent(
   phase: MigrationPhase,
 ): "green" | "blue" | "orange" | "pink" | "none" {

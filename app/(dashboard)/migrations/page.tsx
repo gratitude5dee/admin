@@ -1,6 +1,7 @@
 import { adminGetSafe } from "@/lib/controlPlane";
 import {
   cancellable,
+  directionLabel,
   cleanupPending,
   cutoverable,
   drivable,
@@ -201,7 +202,7 @@ export default async function MigrationsPage({
                 />
                 <Stat
                   label="direction"
-                  value={`${migration.direction.replace("_", " → ")} · ${migration.leg}`}
+                  value={`${directionLabel(migration.direction)} · ${migration.leg}`}
                 />
                 <Stat
                   label="routing generation"
@@ -308,7 +309,7 @@ export default async function MigrationsPage({
               <span key="p" className={ACCENT_TEXT[phaseAccent(m.phase)]}>
                 {m.phase}
               </span>,
-              m.direction,
+              directionLabel(m.direction),
               m.leg,
               intervalSummary(m),
               fmt(m.wake_at),
@@ -327,7 +328,7 @@ export default async function MigrationsPage({
             rows={settled.map((m) => [
               <UserLink key="u" userId={m.user_id} label={directory.label(m.user_id)} />,
               m.phase,
-              m.direction,
+              directionLabel(m.direction),
               fmt(m.updated_at),
               m.error_code,
             ])}
