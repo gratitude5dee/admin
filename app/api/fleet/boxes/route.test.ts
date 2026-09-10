@@ -95,4 +95,17 @@ describe("fleet box actions", () => {
     expect(url.searchParams.get("error")).toContain("route not deployed");
     expect(url.searchParams.has("box_result")).toBe(false);
   });
+
+  it("preserves the confirmed continuation after a control-plane failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ error: "temporarily unavailable" }, { status: 503 }),
+    );
+    const url = location(await POST(request({
+      action: "stop-idle", channel: "prod", confirm: "stop-idle", after: "bx_previous",
+    })));
+    expect(url.searchParams.get("error")).toContain("temporarily unavailable");
+    expect(url.searchParams.get("continue_stop")).toBe("prod");
+    expect(url.searchParams.get("after")).toBe("bx_previous");
+    expect(url.searchParams.has("box_result")).toBe(false);
+  });
 });

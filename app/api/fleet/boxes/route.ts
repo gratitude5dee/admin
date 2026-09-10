@@ -33,10 +33,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (after !== null && (typeof after !== "string" || !after.trim())) {
         throw new Error("after must be a non-empty box ID");
       }
+      back.searchParams.set("continue_stop", channel);
+      if (after) back.searchParams.set("after", after);
       const report = await adminSend<StopIdleReport>(
         "/api/admin/boxes/stop-idle", "POST",
         { channel, ...(after ? { after } : {}) },
       );
+      back.searchParams.delete("continue_stop");
+      back.searchParams.delete("after");
       back.searchParams.set(
         "box_result",
         `${channel} batch: ${report.processed} of ${report.targeted} candidates processed; ` +
