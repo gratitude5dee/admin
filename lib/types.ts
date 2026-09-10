@@ -1,5 +1,22 @@
 /** Response shapes of the airv2 control-plane admin endpoints (metadata only). */
 
+export interface RelabelReport {
+  relabeled: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface StopIdleReport {
+  channel: "dev" | "prod";
+  targeted: number;
+  processed: number;
+  stopped: number;
+  stopping: number;
+  indexingDeferred: number;
+  releaseFailed: number;
+  continuation: { channel: "dev" | "prod"; after?: string } | null;
+}
+
 export interface UsersResponse {
   users: {
     user_id: string;

@@ -25,6 +25,7 @@ import {
   type StatAccent,
 } from "@/components/panel";
 import { UserLink } from "@/components/user-link";
+import { FleetBoxActions } from "@/components/fleet-box-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -150,9 +151,14 @@ function JobActions({ job }: { job: FleetSyncJob }) {
 export default async function FleetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    box_result?: string;
+    continue_stop?: string;
+    after?: string;
+  }>;
 }) {
-  const { error: actionError } = await searchParams;
+  const { error: actionError, box_result, continue_stop, after } = await searchParams;
   const [releases, channels, sync, boxes] = await Promise.all([
     adminGetSafe<FleetReleasesResponse>("/api/admin/fleet/releases"),
     adminGetSafe<FleetChannelsResponse>("/api/admin/fleet/channels"),
@@ -256,6 +262,12 @@ export default async function FleetPage({
         {channels.error !== null ? <LoadError error={channels.error} /> : null}
       </Panel>
 
+      <FleetBoxActions
+        result={box_result}
+        continuation={continue_stop === "dev" || continue_stop === "prod" ? continue_stop : undefined}
+        after={after}
+      />
+
       <Panel
         title="Box drift"
         note="Each box against the release its channel points at. baseline is the template release sync-box.sh last converged it to; hermes is the pinned Hermes ref. 'behind' means the channel moved past the box, 'hermes behind' means the release only differs in its Hermes pin, 'unsynced' means no fleet sync has ever recorded a baseline for it, 'no target' means the box's channel has no release to compare against. A stopped box is normal (idle); it is resumed for its sync and stopped again."
@@ -287,8 +299,10 @@ export default async function FleetPage({
             </div>
             <DataTable
               headers={[
-                "box",
+                "owner label (target)",
+                "stable box ID",
                 "user",
+                "provider",
                 "channel",
                 "box state",
                 "drift",
@@ -298,12 +312,14 @@ export default async function FleetPage({
                 "last active",
               ]}
               rows={withDrift.map(({ box, target, drift }) => [
+                box.username ? `air-${box.username}` : "No username",
                 box.provider_box_id,
                 <UserLink
                   key={box.user_id}
                   userId={box.user_id}
                   label={userLabel(box)}
                 />,
+                box.provider,
                 box.channel ?? null,
                 box.state,
                 <span key="drift" className={ACCENT_TEXT[driftAccent(drift)]}>
