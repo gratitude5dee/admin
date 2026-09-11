@@ -363,6 +363,16 @@ export interface FleetSyncResponse {
   latest_job_boxes: FleetSyncJobBox[];
 }
 
+export interface PlatformSettingsResponse {
+  /** Stored platform_settings.box_default_provider ("ascii" when unset). */
+  box_default_provider: string;
+  /**
+   * What provisioning actually uses — tenki only takes effect once the
+   * control plane's TENKI_TEMPLATE_ID points at a snapshot ref.
+   */
+  effective_box_provider: string;
+}
+
 export interface OnboardingResponse {
   steps: string[];
   stale_after_ms: number;
