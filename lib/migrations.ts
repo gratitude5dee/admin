@@ -117,12 +117,16 @@ export function cutoverable(m: MigrationListRow): boolean {
   return m.phase === "precopy" || m.phase === "waiting_for_idle";
 }
 
-/** A parked or faulted migration an operator can re-arm. */
-export function drivable(m: MigrationListRow): boolean {
+/**
+ * A parked or faulted migration an operator can re-arm: faulted phases, or a
+ * non-terminal phase whose worker lease has lapsed (nobody is driving it).
+ * Needs the detail row for `worker_lease_until`.
+ */
+export function drivable(m: MigrationDetail): boolean {
+  if (TERMINAL_PHASES.has(m.phase)) return false;
+  if (m.phase === "recovery_required" || m.phase === "cleanup_failed") return true;
   return (
-    !TERMINAL_PHASES.has(m.phase) ||
-    m.phase === "recovery_required" ||
-    m.phase === "cleanup_failed"
+    !m.worker_lease_until || Date.parse(m.worker_lease_until) < Date.now()
   );
 }
 

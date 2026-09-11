@@ -281,7 +281,7 @@ export default async function MigrationsPage({
                     danger
                   />
                 ) : null}
-                {drivable(migration) && !TERMINAL_PHASES.has(migration.phase) ? (
+                {drivable(migration) ? (
                   <ActionForm
                     userId={userId}
                     op="drive"
