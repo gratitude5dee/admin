@@ -6,6 +6,7 @@ import type {
   FleetReleasesResponse,
   FleetSyncJob,
   FleetSyncResponse,
+  PlatformSettingsResponse,
 } from "@/lib/types";
 import {
   boxDrift,
@@ -126,6 +127,34 @@ function SyncForm({
   );
 }
 
+function ProviderForm({ current }: { current: string }) {
+  return (
+    <form
+      method="post"
+      action="/api/settings"
+      className="flex items-end gap-2"
+    >
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+        default provider
+        <select
+          name="provider"
+          defaultValue={current}
+          className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground"
+        >
+          <option value="ascii">ascii (box)</option>
+          <option value="tenki">tenki</option>
+        </select>
+      </label>
+      <button
+        type="submit"
+        className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-[11px] text-foreground hover:bg-card"
+      >
+        Set default
+      </button>
+    </form>
+  );
+}
+
 function JobActions({ job }: { job: FleetSyncJob }) {
   const actions =
     job.state === "paused" ? ["resume", "abort"] : ["pause", "abort"];
@@ -159,11 +188,12 @@ export default async function FleetPage({
   }>;
 }) {
   const { error: actionError, box_result, continue_stop, after } = await searchParams;
-  const [releases, channels, sync, boxes] = await Promise.all([
+  const [releases, channels, sync, boxes, settings] = await Promise.all([
     adminGetSafe<FleetReleasesResponse>("/api/admin/fleet/releases"),
     adminGetSafe<FleetChannelsResponse>("/api/admin/fleet/channels"),
     adminGetSafe<FleetSyncResponse>("/api/admin/fleet/sync"),
     adminGetSafe<BoxesResponse>("/api/admin/boxes?days=30"),
+    adminGetSafe<PlatformSettingsResponse>("/api/admin/settings"),
   ]);
   const now = Date.now();
 
@@ -260,6 +290,43 @@ export default async function FleetPage({
         </div>
         {releases.error !== null ? <LoadError error={releases.error} /> : null}
         {channels.error !== null ? <LoadError error={channels.error} /> : null}
+      </Panel>
+
+      <Panel
+        title="New user boxes"
+        note="Which compute provider a new signup's box lands on. 'stored' is the platform_settings.box_default_provider row; 'effective' is what provisioning actually uses — tenki only takes effect once the control plane's TENKI_TEMPLATE_ID points at a template snapshot, so the switch can be flipped early without breaking signups. Future signups only; existing boxes are untouched."
+      >
+        {settings.error !== null ? (
+          <LoadError error={settings.error} />
+        ) : (
+          <div className="flex flex-wrap items-end gap-4">
+            <Stat
+              label="stored default"
+              value={settings.data?.box_default_provider ?? "ascii"}
+              accent="blue"
+            />
+            <Stat
+              label="effective"
+              value={settings.data?.effective_box_provider ?? "ascii"}
+              accent={
+                settings.data?.effective_box_provider === "tenki"
+                  ? "green"
+                  : "none"
+              }
+            />
+            <ProviderForm
+              current={settings.data?.box_default_provider ?? "ascii"}
+            />
+          </div>
+        )}
+        {settings.error === null &&
+        settings.data?.box_default_provider === "tenki" &&
+        settings.data?.effective_box_provider !== "tenki" ? (
+          <p className="mt-2 font-mono text-[10px] text-orange-400">
+            tenki is selected but no TENKI_TEMPLATE_ID snapshot is configured —
+            new users still get ascii.
+          </p>
+        ) : null}
       </Panel>
 
       <FleetBoxActions
