@@ -127,6 +127,62 @@ function SyncForm({
   );
 }
 
+function ReleaseForm() {
+  const control =
+    "rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground";
+  return (
+    <form
+      method="post"
+      action="/api/fleet/releases"
+      encType="multipart/form-data"
+      className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"
+    >
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+        version
+        <input
+          required
+          name="version"
+          placeholder="2026.09.15-bedeb28"
+          className={control}
+        />
+      </label>
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground xl:col-span-2">
+        git SHA
+        <input
+          required
+          name="git_sha"
+          pattern="[0-9a-f]{7,40}"
+          placeholder="40-character commit SHA"
+          className={control}
+        />
+      </label>
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+        Hermes ref (optional)
+        <input
+          name="hermes_ref"
+          pattern="[0-9a-f]{7,40}"
+          placeholder="pinned ref"
+          className={control}
+        />
+      </label>
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+        template artifact (.tgz, ≤3 MiB)
+        <input required name="artifact" type="file" accept=".tgz,application/gzip" className={control} />
+      </label>
+      <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground md:col-span-2 xl:col-span-4">
+        notes (optional)
+        <input name="notes" maxLength={1_000} className={control} />
+      </label>
+      <button
+        type="submit"
+        className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-[11px] text-foreground hover:bg-card"
+      >
+        Cut immutable release
+      </button>
+    </form>
+  );
+}
+
 function ProviderForm({ current }: { current: string }) {
   return (
     <form
@@ -182,12 +238,19 @@ export default async function FleetPage({
 }: {
   searchParams: Promise<{
     error?: string;
+    released?: string;
     box_result?: string;
     continue_stop?: string;
     after?: string;
   }>;
 }) {
-  const { error: actionError, box_result, continue_stop, after } = await searchParams;
+  const {
+    error: actionError,
+    released,
+    box_result,
+    continue_stop,
+    after,
+  } = await searchParams;
   const [releases, channels, sync, boxes, settings] = await Promise.all([
     adminGetSafe<FleetReleasesResponse>("/api/admin/fleet/releases"),
     adminGetSafe<FleetChannelsResponse>("/api/admin/fleet/channels"),
@@ -244,6 +307,17 @@ export default async function FleetPage({
       {actionError ? (
         <p className="font-mono text-[11px] text-red-400">{actionError}</p>
       ) : null}
+      {released ? (
+        <p className="font-mono text-[11px] text-emerald-400">
+          Release {released} cut successfully.
+        </p>
+      ) : null}
+      <Panel
+        title="Cut template release"
+        note="Uploads an immutable infra/template artifact through the dashboard server. The browser never receives ADMIN_API_KEY. Cutting does not move a channel or interrupt the active fleet job."
+      >
+        <ReleaseForm />
+      </Panel>
       <Panel
         title="Fleet sync"
         note="Converges every prod box to the newest template release: points the prod channel at it (if behind) and starts a sync job the cron sweeps one wave per minute. sync-box.sh is idempotent and preserves user state; a box mid-conversation is deferred (not interrupted) and retried on its next idle window. With a canary chosen the job syncs that box first and pauses on failure; 'repin Hermes' also moves each box to the release's Hermes ref and re-runs verify-box.sh."
