@@ -1,11 +1,21 @@
+import Link from "next/link";
 import { adminGetSafe } from "@/lib/controlPlane";
 import { fetchUserDirectory } from "@/lib/users";
 import type {
   BoxesResponse,
+  CreateOpsResponse,
+  DeploymentsResponse,
   OpsResponse,
   TimeseriesResponse,
 } from "@/lib/types";
-import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
+import { buildFailedAccent } from "@/lib/createOps";
+import {
+  DataTable,
+  LoadError,
+  Panel,
+  Stat,
+  type StatAccent,
+} from "@/components/panel";
 import {
   ActivityAreaChart,
   BreakdownPieChart,
@@ -21,16 +31,40 @@ function hours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
+/** A Stat that is also a link to the page with the detail (goal.md §3.4). */
+function StatLink({
+  href,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  sub: string;
+  accent: StatAccent;
+}) {
+  return (
+    <Link href={href} className="block rounded-md hover:ring-1 hover:ring-border">
+      <Stat label={label} value={value} sub={sub} accent={accent} />
+    </Link>
+  );
+}
+
 export default async function BoxesPage({
   searchParams,
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
   const days = rangeDays((await searchParams).days);
-  const [ops, boxes, series, directory] = await Promise.all([
+  const [ops, boxes, series, deployments, create, directory] = await Promise.all([
     adminGetSafe<OpsResponse>("/api/admin/ops"),
     adminGetSafe<BoxesResponse>(`/api/admin/boxes?days=${days}`),
     adminGetSafe<TimeseriesResponse>(`/api/admin/timeseries?days=${days}`),
+    // Totals only; the rows are on /deployments (airv2 §12 honours ?limit=).
+    adminGetSafe<DeploymentsResponse>("/api/admin/deployments?limit=1"),
+    adminGetSafe<CreateOpsResponse>("/api/admin/create?days=1"),
     fetchUserDirectory(),
   ]);
 
@@ -121,6 +155,53 @@ export default async function BoxesPage({
           </div>
           </>
         )}
+      </Panel>
+
+      <Panel
+        title="Deployments and Create"
+        note="From /api/admin/deployments totals and /api/admin/create?days=1 — Create apps live on dev (link.wzrd.tech) and production (mini.wzrd.tech), and builds in the last 24 hours. Each stat opens its page."
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {deployments.error !== null ? (
+            <div className="sm:col-span-2">
+              <LoadError error={deployments.error} />
+            </div>
+          ) : (
+            <>
+              <StatLink
+                href="/deployments?channel=dev"
+                label="dev releases live"
+                value={String(deployments.data.apps.dev_live)}
+                sub={
+                  deployments.data.apps.expiring_7d > 0
+                    ? `${deployments.data.apps.expiring_7d} expiring within 7d · /deployments →`
+                    : "none expiring within 7d · /deployments →"
+                }
+                accent={deployments.data.apps.expiring_7d > 0 ? "orange" : "green"}
+              />
+              <StatLink
+                href="/deployments?channel=prod"
+                label="production apps"
+                value={String(deployments.data.apps.prod_live)}
+                sub={`of ${deployments.data.apps.total} apps · /deployments →`}
+                accent="green"
+              />
+            </>
+          )}
+          {create.error !== null ? (
+            <LoadError error={create.error} />
+          ) : (
+            <StatLink
+              href="/create?days=1"
+              label="builds (24h)"
+              value={String(create.data.builds.total)}
+              sub={`${create.data.builds.failed} failed · /create →`}
+              accent={
+                buildFailedAccent(create.data.builds) === "pink" ? "pink" : "blue"
+              }
+            />
+          )}
+        </div>
       </Panel>
 
       <Panel title="Box start rate" note="From /api/admin/ops — platform ceilings 600/hr, 1,500/day.">
