@@ -13,6 +13,7 @@ import {
   type Drift,
   type FleetBox,
 } from "./fleet";
+import { QA_GATE, stripContentFields as stripDeep } from "./createOps";
 import type {
   CreateOpsResponse,
   DeploymentsResponse,
@@ -109,9 +110,10 @@ export function testsAccent(passed: number, total: number): Accent {
   return passed === total ? "green" : "pink";
 }
 
+/** Below the CR22 publish gate reads pink; the gate itself lives in createOps. */
 export function qaAccent(score: number | null): Accent {
   if (score === null) return "none";
-  return score < 70 ? "pink" : "green";
+  return score < QA_GATE ? "pink" : "green";
 }
 
 export function statusAccent(status: DeploymentRow["status"]): Accent {
@@ -171,12 +173,14 @@ export const CONTENT_FIELDS = [
 ] as const;
 export type ContentField = (typeof CONTENT_FIELDS)[number];
 
+/**
+ * A1 for a deployments row: the same deep strip every other page uses
+ * (createOps), typed for a row so callers lose the content keys statically.
+ */
 export function stripContentFields<T extends object>(
   row: T
 ): Omit<T, ContentField> {
-  const copy = { ...row } as Record<string, unknown>;
-  for (const field of CONTENT_FIELDS) delete copy[field];
-  return copy as Omit<T, ContentField>;
+  return stripDeep(row) as Omit<T, ContentField>;
 }
 
 export interface Reconciliation {
