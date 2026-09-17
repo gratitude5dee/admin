@@ -16,10 +16,14 @@ const config: ChartConfig = {
   completion: { color: "green", label: "completion" },
 };
 
+/**
+ * Prompt-vs-completion bars keyed by a per-row label — a user on the Tokens
+ * user view, a model / provider / stage / … key on the group tabs.
+ */
 export function TokensChart({
   data,
 }: {
-  data: { user: string; prompt: number; completion: number }[];
+  data: { label: string; prompt: number; completion: number }[];
 }) {
   if (data.length === 0) return null;
   return (
@@ -27,10 +31,10 @@ export function TokensChart({
       <Grid />
       <Bar dataKey="prompt" />
       <Bar dataKey="completion" />
-      <XAxis dataKey="user" />
+      <XAxis dataKey="label" />
       <YAxis />
       <Legend />
-      <Tooltip labelKey="user" />
+      <Tooltip labelKey="label" />
     </BarChart>
   );
 }

@@ -27,6 +27,7 @@ import {
 } from "@/components/panel";
 import { UserLink } from "@/components/user-link";
 import { FleetBoxActions } from "@/components/fleet-box-actions";
+import { FleetChannelStats } from "@/components/fleet-channels";
 
 export const dynamic = "force-dynamic";
 
@@ -333,21 +334,10 @@ export default async function FleetPage({
             }
             accent="blue"
           />
-          {channelList.map((channel) => (
-            <Stat
-              key={channel.name}
-              label={`${channel.name} channel`}
-              value={releaseById.get(channel.release_id ?? "")?.version ?? "—"}
-              sub={`since ${when(channel.updated_at) ?? "—"}`}
-              accent={
-                latest === null
-                  ? "blue"
-                  : channel.release_id === latest.id
-                    ? "green"
-                    : "orange"
-              }
-            />
-          ))}
+          <FleetChannelStats
+            channels={channelList}
+            releases={releases.data?.releases ?? []}
+          />
         </div>
         <div className="mt-3">
           <SyncForm

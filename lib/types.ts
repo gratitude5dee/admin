@@ -36,7 +36,19 @@ export interface TimeseriesPoint {
   box_seconds: number;
   starts: number;
   stops: number;
+  /** Present only when /api/admin/timeseries is asked for the named series. */
+  builds?: number;
+  dev_releases?: number;
+  publishes?: number;
 }
+
+/** Extra series /api/admin/timeseries?series= can carry (airv2 goal-create-v12 §12). */
+export type TimeseriesSeries =
+  | "tokens"
+  | "cost"
+  | "builds"
+  | "dev_releases"
+  | "publishes";
 
 export interface TimeseriesResponse {
   window_days: number;
@@ -410,4 +422,51 @@ export interface FeedbackResponse {
     status: string;
     created_at: string;
   }[];
+}
+
+/**
+ * /api/admin/deployments — fleet channels plus every Create app's dev,
+ * production and draft pointers (goal.md §5; airv2 goal-create-v12 §12).
+ */
+export interface DeploymentsResponse {
+  control_plane: { git_sha: string | null; deployed_at: string | null; region: string | null };
+  kit: { version: string; restricted_version: string | null };
+  dispatcher: { healthy: boolean | null; checked_at: string | null };
+  channels: FleetChannel[];
+  apps: { total: number; dev_live: number; prod_live: number; drafts_only: number; expiring_7d: number };
+  rows: {
+    slug: string; username: string | null; appname: string | null;
+    lane: "drop" | "vibe" | "import" | "push" | null;
+    status: "draft" | "published" | "suspended"; visibility: "public" | "unlisted" | "private"; listed: boolean;
+    dev_version: string | null; dev_expires_at: string | null;
+    live_version: string | null; draft_version: string | null;
+    last_build: { status: "queued" | "running" | "succeeded" | "failed"; finished_at: string | null; findings_hard: number } | null;
+    qa_score: number | null; tests: { passed: number; total: number } | null;
+    worker_sha256_prefix: string | null;
+    functions_status: "disabled" | "draft" | "live" | "suspended";
+    mirrored_at: string | null;
+  }[];
+}
+
+/** /api/admin/create?days= — the Create intake funnel and build/QA health. */
+export interface CreateOpsResponse {
+  window_days: number;
+  funnel: Record<
+    | "asking" | "planning" | "plan_sent" | "revising" | "confirmed" | "building" | "qa" | "testing"
+    | "dev_ready" | "finalizing" | "decision_sent" | "production" | "failed" | "abandoned", number>;
+  medians_s: { first_question: number | null; plan: number | null; confirm_to_dev: number | null; dev_to_prod: number | null };
+  builds: { total: number; failed: number; by_rule: Record<string, number> };
+  qa: { p50: number | null; p90: number | null; below_70: number };
+  tests: { declared: number; passed_ratio: number | null };
+  progress_relay: { cards_updated: number; text_fallbacks: number; update_failures: number };
+  mirror: { ok: number; failed: number };
+  budget_exhausted: number;
+  by_template: Record<string, number>;
+}
+
+/** /api/admin/tokens?group= — grouped spend; sums reconcile with `totals` (A6). */
+export type TokensGroup = "user" | "model" | "family" | "provider" | "tier" | "lane" | "stage" | "project";
+export interface TokensGroupedResponse extends TokensResponse {
+  group: TokensGroup;
+  groups: { key: string; runs: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number; cost_estimated: boolean }[];
 }

@@ -7,6 +7,8 @@ const NAV = [
   { href: "/onboarding", label: "Onboarding" },
   { href: "/skills", label: "Skills" },
   { href: "/fleet", label: "Fleet" },
+  { href: "/deployments", label: "Deployments" },
+  { href: "/create", label: "Create" },
   { href: "/migrations", label: "Migrations" },
   { href: "/traces", label: "Traces" },
   { href: "/costs", label: "Costs" },

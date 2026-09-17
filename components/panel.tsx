@@ -33,6 +33,11 @@ const ACCENTS = {
 
 export type StatAccent = keyof typeof ACCENTS;
 
+/** The text class Stat uses for an accent, for coloring table cells the same way. */
+export function accentText(accent: StatAccent): string {
+  return ACCENTS[accent];
+}
+
 export function Stat({
   label,
   value,
