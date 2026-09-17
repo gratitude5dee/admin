@@ -45,7 +45,7 @@ function External({ href, label }: { href: string; label: string }) {
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="text-sky-400 hover:underline"
+      className="whitespace-nowrap text-sky-400 hover:underline"
     >
       {label} ↗
     </a>
@@ -119,7 +119,8 @@ export default async function DeploymentsPage({
         {deployments.error !== null ? (
           <LoadError error={deployments.error} />
         ) : (
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
             <Stat
               label="control plane"
               value={shortRef(deployments.data.control_plane.git_sha) ?? "—"}
@@ -153,6 +154,8 @@ export default async function DeploymentsPage({
                     : "pink"
               }
             />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Stat label="apps" value={String(deployments.data.apps.total)} />
             <Stat
               label="dev live"
@@ -174,6 +177,7 @@ export default async function DeploymentsPage({
               value={String(deployments.data.apps.expiring_7d)}
               accent={deployments.data.apps.expiring_7d > 0 ? "orange" : "none"}
             />
+            </div>
           </div>
         )}
       </Panel>

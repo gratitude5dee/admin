@@ -12,13 +12,26 @@ prompts, or memory are stored or displayed (constraint C4).
 
 - **Boxes** — box start rate (`/api/admin/ops`) and per-user box usage
   (`/api/admin/boxes`)
-- **Tokens** — gateway-metered prompt/completion tokens and cost
-  (`/api/admin/tokens`)
+- **Tokens** — gateway-metered prompt/completion tokens and cost per user
+  (`/api/admin/tokens`), plus `group=` tabs for model, provider, tier, lane,
+  stage and project (`/api/admin/tokens?group=`); the stage tab adds the
+  Astra (plan) vs GLM (build + review) card with cost per production app, and
+  `~` marks a list-estimated cost (`cost_estimated`)
 - **Connectors** — connection health per toolkit/status (`/api/admin/connectors`)
 - **Onboarding** — step funnel, status-mirror health, and per-user progress
   (`/api/admin/onboarding`)
 - **Skills** — template skill set and per-user template versions; per-skill
   usage is not metered control-plane-side (C4)
+- **Deployments** — what is live where: control-plane git SHA, Kit version
+  and Dispatcher health, the template release each fleet channel points at,
+  and every Create app's dev release (`link.wzrd.tech/<u>/<a>`, expiry),
+  production version (`mini.wzrd.tech/<u>/<a>`), draft, last build, QA, tests,
+  Functions and mirror state (`/api/admin/deployments`), with confirm-gated
+  **revoke dev** / **renew dev** / **suspend** actions proxied through
+  `/api/deployments/apps/[slug]/{dev,suspend}`
+- **Create** — Create intake health: stage funnel and medians, builds and
+  the rules they failed, QA distribution, tests pass ratio, progress-relay and
+  mirror health, template mix and budget exhaustions (`/api/admin/create`)
 - **Traces** — receipt metadata with CSV/JSONL export (`/api/admin/traces`)
 - **Costs** — creative/ad/storage spend (`/api/admin/costs`) plus LLM cost
 - **Feedback** — in-air bug/feature inbox (`/api/admin/feedback`)

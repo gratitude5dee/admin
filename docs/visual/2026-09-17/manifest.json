@@ -1,0 +1,224 @@
+{
+  "date": "2026-09-17",
+  "generated_at": "2026-09-17T21:07:01.119Z",
+  "base_url": "http://localhost:3111",
+  "control_plane": "http://localhost:4600",
+  "build_id": "QXxJ2WnjyX8ZrlYu4ZSTn",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "status": "passed",
+  "failure": null,
+  "steps": [
+    {
+      "n": 1,
+      "name": "login page",
+      "url": "http://localhost:3111/login",
+      "screenshot": "01-login.png",
+      "assertions": [
+        "unauthenticated visit lands on /login",
+        "password field is visible",
+        "no bearer in the HTML of /login"
+      ]
+    },
+    {
+      "n": 2,
+      "name": "home after login",
+      "url": "http://localhost:3111/",
+      "screenshot": "02-home.png",
+      "assertions": [
+        "password form redirects to /",
+        "session cookie is httpOnly (absent from document.cookie)",
+        "Boxes panel (Box usage) renders",
+        "Box start rate panel renders",
+        "new stat row 'Deployments and Create' renders",
+        "dev releases live = 1",
+        "production apps = 1",
+        "builds (24h) = 11",
+        "dev and production stats link to /deployments",
+        "builds stat links to /create",
+        "no bearer in the HTML of /"
+      ]
+    },
+    {
+      "n": 3,
+      "name": "deployments",
+      "url": "http://localhost:3111/deployments",
+      "screenshot": "03-deployments.png",
+      "assertions": [
+        "Platform panel renders",
+        "control plane git sha is short (f6267a7)",
+        "dispatcher healthy is green",
+        "dev expiring (7d) = 1 in orange",
+        "dev live = 1 before revoke",
+        "both channels render (prod, dev)",
+        "manage → /fleet link present",
+        "two app rows render",
+        "rows are alice/tour and bob/notes",
+        "orange expiring label: \"0.3.0 · expires in 1d\"",
+        "bob/notes failed build is pink",
+        "no bearer in the HTML of /deployments"
+      ]
+    },
+    {
+      "n": 4,
+      "name": "deployments — inline confirm",
+      "url": "http://localhost:3111/deployments",
+      "screenshot": "04-deployments-confirm.png",
+      "assertions": [
+        "first 'revoke dev' button (alice/tour) is enabled",
+        "inline confirm button appears",
+        "confirm prompt names the app (revoke dev alice-tour?)",
+        "cancel button appears",
+        "first click does not navigate",
+        "no native confirm() dialog",
+        "confirm is a plain POST form (the panel's only one)",
+        "the POST form holds the confirm button",
+        "form posts to /api/deployments/apps/alice-tour/dev",
+        "hidden action=revoke",
+        "no bearer in the HTML of /deployments"
+      ]
+    },
+    {
+      "n": 5,
+      "name": "deployments after revoke",
+      "url": "http://localhost:3111/deployments",
+      "screenshot": "05-deployments-revoked.png",
+      "assertions": [
+        "same-origin POST answered 303 (303)",
+        "redirected back to /deployments with no ?error=",
+        "mock logged the bearer POST: \"POST /api/admin/create/apps/alice-tour/dev auth_valid=true\"",
+        "mock received body {\"action\":\"revoke\"}",
+        "mock state: alice-tour dev=—",
+        "alice/tour dev cell re-renders as \"—\"",
+        "dev live = 0 after revoke",
+        "dev expiring (7d) = 0 and no longer orange",
+        "revoke dev is disabled once there is no dev release",
+        "no bearer in the HTML of /deployments"
+      ]
+    },
+    {
+      "n": 6,
+      "name": "create",
+      "url": "http://localhost:3111/create",
+      "screenshot": "06-create.png",
+      "assertions": [
+        "Intake funnel panel renders",
+        "funnel bar chart canvas has painted bars",
+        "failed stat = 1 in pink",
+        "funnel production (1) equals /deployments production live (1)",
+        "by_rule sorted desc (3 ≥ 1)",
+        "Quality panel renders",
+        "Progress relay and mirror panel renders",
+        "Templates panel renders",
+        "Budget panel renders",
+        "budget links to /tokens?group=project",
+        "no LoadError on /create",
+        "no bearer in the HTML of /create"
+      ]
+    },
+    {
+      "n": 7,
+      "name": "tokens by stage",
+      "url": "http://localhost:3111/tokens?group=stage",
+      "screenshot": "07-tokens-stage.png",
+      "assertions": [
+        "group tabs: user · model · provider · tier · lane · stage · project",
+        "Token usage by stage panel renders",
+        "stage bar chart canvas has painted bars",
+        "'~' estimated cost cell present (~$1.2100, title \"list-estimated\")",
+        "grouped sum reconciles with totals (A6)",
+        "Astra vs GLM card renders",
+        "card compares Astra with GLM-5.3-Flash",
+        "card has plan and build + review rows",
+        "card production apps (1) equals the Create funnel",
+        "no bearer in the HTML of /tokens?group=stage"
+      ]
+    },
+    {
+      "n": 8,
+      "name": "tokens by provider",
+      "url": "http://localhost:3111/tokens?group=provider",
+      "screenshot": "08-tokens-provider.png",
+      "assertions": [
+        "Token usage by provider panel renders",
+        "table is keyed by provider",
+        "at least two providers",
+        "grouped sum reconciles with totals (A6)",
+        "no Astra vs GLM card outside the stage tab",
+        "no bearer in the HTML of /tokens?group=provider"
+      ]
+    },
+    {
+      "n": 9,
+      "name": "fleet",
+      "url": "http://localhost:3111/fleet",
+      "screenshot": "09-fleet.png",
+      "assertions": [
+        "Fleet sync panel renders",
+        "Box drift panel renders",
+        "Latest sync job panel renders",
+        "Releases panel renders",
+        "no LoadError on /fleet",
+        "no bearer in the HTML of /fleet"
+      ]
+    },
+    {
+      "n": 10,
+      "name": "reconcile (T9)",
+      "url": null,
+      "screenshot": null,
+      "assertions": [
+        "home production apps (1) = /deployments production live (1) = /create funnel production (1) = /tokens stage card (1)",
+        "home dev releases live (1) = /deployments dev live before revoke (1)"
+      ]
+    },
+    {
+      "n": 11,
+      "name": "secret scan",
+      "url": null,
+      "screenshot": null,
+      "assertions": [
+        "no bearer in .next/static (clean)",
+        "no bearer in 9 served pages",
+        "no browser console errors (none)"
+      ]
+    }
+  ],
+  "assertions": 86,
+  "video": "walkthrough.webm",
+  "screenshots": [
+    "01-login.png",
+    "02-home.png",
+    "03-deployments.png",
+    "04-deployments-confirm.png",
+    "05-deployments-revoked.png",
+    "06-create.png",
+    "07-tokens-stage.png",
+    "08-tokens-provider.png",
+    "09-fleet.png"
+  ],
+  "mock_log": "mock.log",
+  "mock_posts": [
+    "POST /api/admin/create/apps/alice-tour/dev auth_valid=true",
+    "  body {\"action\":\"revoke\"}",
+    "  create app alice-tour revoke -> dev=— status=published"
+  ],
+  "secret_scan": {
+    "pages": [
+      "http://localhost:3111/login",
+      "http://localhost:3111/",
+      "http://localhost:3111/deployments",
+      "http://localhost:3111/deployments",
+      "http://localhost:3111/deployments",
+      "http://localhost:3111/create",
+      "http://localhost:3111/tokens?group=stage",
+      "http://localhost:3111/tokens?group=provider",
+      "http://localhost:3111/fleet"
+    ],
+    "leaks": [],
+    "static_scanned": true
+  },
+  "size_bytes": 2381583
+}

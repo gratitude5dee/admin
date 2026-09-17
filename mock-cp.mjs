@@ -148,6 +148,12 @@ const data = {
       { job_id: "job-2", provider_box_id: "bx_echo", state: "pending", is_canary: false, error: null, started_at: null, finished_at: null },
     ],
   },
+  // PlatformSettingsResponse (lib/types.ts): the Fleet page's "New user boxes"
+  // panel reads it; POST /api/admin/settings lands in the generic POST handler.
+  "/api/admin/settings": {
+    box_default_provider: "ascii",
+    effective_box_provider: "ascii",
+  },
   "/api/admin/tokens": {
     window_days: 7,
     since: "2026-02-03T00:00:00Z",
