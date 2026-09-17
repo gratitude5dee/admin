@@ -17,6 +17,9 @@ import {
   stripContentFields,
   summarizeChannels,
   testsAccent,
+  viewFields,
+  viewFromForm,
+  viewSearch,
 } from "./deployments";
 
 const NOW = Date.parse("2026-09-17T12:00:00Z");
@@ -290,5 +293,37 @@ describe("actionRoute", () => {
     expect(actionRoute("a/b", "suspend").path).toBe(
       "/api/deployments/apps/a%2Fb/suspend"
     );
+  });
+});
+
+describe("deployments view carried through an action (redirect lands on the same view)", () => {
+  it("keeps only values the page itself accepts", () => {
+    expect(
+      viewFields({ days: "7", channel: "dev", user_id: "5b4e9c0a-2f1d-4b8a-9c3e-1a2b3c4d5e6f" })
+    ).toEqual({ days: "7", channel: "dev", user_id: "5b4e9c0a-2f1d-4b8a-9c3e-1a2b3c4d5e6f" });
+    // "all" is the default channel; an empty user filter carries nothing.
+    expect(viewFields({ days: "30", channel: "all", user_id: "" })).toEqual({ days: "30" });
+    // Bad values never ride along: a redirect must not become an injection point.
+    expect(
+      viewFields({ days: "7d", channel: "prod-or-dev", user_id: "alice" })
+    ).toEqual({});
+    expect(viewFields({})).toEqual({});
+  });
+
+  it("builds the search string with the error last and nothing when empty", () => {
+    expect(viewSearch({})).toBe("");
+    expect(viewSearch({}, "boom")).toBe("?error=boom");
+    expect(viewSearch({ days: "7", channel: "prod" }, "no dev release")).toBe(
+      "?days=7&channel=prod&error=no+dev+release"
+    );
+  });
+
+  it("reads the view off a posted form, and an absent form as empty", () => {
+    const form = new FormData();
+    form.set("action", "revoke");
+    form.set("days", "7");
+    form.set("channel", "dev");
+    expect(viewFromForm(form)).toEqual({ days: "7", channel: "dev", user_id: undefined });
+    expect(viewFromForm(null)).toEqual({ days: undefined, channel: undefined, user_id: undefined });
   });
 });

@@ -341,6 +341,7 @@ export default async function DeploymentsPage({
                   slug={row.slug}
                   hasDev={row.dev_version !== null}
                   suspended={row.status === "suspended"}
+                  view={{ days: String(days), channel, user_id: userId }}
                 />,
               ];
             })}

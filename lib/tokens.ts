@@ -121,17 +121,23 @@ export interface Reconciliation {
 
 /**
  * A6: grouped token totals equal the ungrouped totals for the same window.
- * Token counts must match exactly; cost within half a cent.
+ * Token counts must match exactly; cost within half a cent; and every row's
+ * own total is its prompt plus completion, since the chart and the ordering
+ * read that field.
  */
 export function reconcileGroups(
   response: Pick<TokensGroupedResponse, "totals" | "groups">
 ): Reconciliation {
   const grouped = groupTotals(response.groups);
   const { totals } = response;
+  const rowTotalsMatch = response.groups.every(
+    (row) => row.total_tokens === row.prompt_tokens + row.completion_tokens
+  );
   return {
     totals,
     grouped,
     matches:
+      rowTotalsMatch &&
       grouped.prompt_tokens === totals.prompt_tokens &&
       grouped.completion_tokens === totals.completion_tokens &&
       Math.abs(grouped.cost_usd - totals.cost_usd) < COST_TOLERANCE_USD,

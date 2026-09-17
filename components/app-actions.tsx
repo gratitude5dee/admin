@@ -10,7 +10,13 @@
  * row shows whatever the control plane reports.
  */
 import { useState } from "react";
-import { actionRoute, APP_ACTIONS, type AppAction } from "@/lib/deployments";
+import {
+  actionRoute,
+  APP_ACTIONS,
+  viewFields,
+  type AppAction,
+  type DeploymentsView,
+} from "@/lib/deployments";
 
 const button =
   "rounded-md border border-border bg-background px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40";
@@ -23,11 +29,14 @@ export function AppActions({
   slug,
   hasDev,
   suspended,
+  view = {},
 }: {
   slug: string;
   /** Revoke and renew need a dev release to act on (the control plane 409s a renew without one). */
   hasDev: boolean;
   suspended: boolean;
+  /** The page's current filters, so the 303 lands back on the same view. */
+  view?: DeploymentsView;
 }) {
   const [pending, setPending] = useState<AppAction | null>(null);
 
@@ -35,7 +44,7 @@ export function AppActions({
     const { path, fields } = actionRoute(slug, pending);
     return (
       <form method="post" action={path} className="flex items-center gap-2">
-        {Object.entries(fields).map(([name, value]) => (
+        {Object.entries({ ...fields, ...viewFields(view) }).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
         <span className="font-mono text-[10px] text-muted-foreground">

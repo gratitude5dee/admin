@@ -9,17 +9,17 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { adminSend } from "@/lib/controlPlane";
-import { isAppSlug } from "@/lib/deployments";
+import { isAppSlug, viewFromForm, viewSearch, type DeploymentsView } from "@/lib/deployments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ACTIONS = new Set(["revoke", "renew"]);
 
-function back(request: NextRequest, error?: string): NextResponse {
+function back(request: NextRequest, view: DeploymentsView, error?: string): NextResponse {
   const url = request.nextUrl.clone();
   url.pathname = "/deployments";
-  url.search = error ? `?error=${encodeURIComponent(error)}` : "";
+  url.search = viewSearch(view, error);
   return NextResponse.redirect(url, 303);
 }
 
@@ -28,18 +28,22 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<NextResponse> {
   const { slug } = await params;
-  if (!isAppSlug(slug)) return back(request, "invalid app slug");
-  const form = await request.formData();
+  // A body that is not a form is a 303 with the reason, never a 500.
+  const form = await request.formData().catch(() => null);
+  const view = viewFromForm(form);
+  if (!isAppSlug(slug)) return back(request, view, "invalid app slug");
+  if (!form) return back(request, view, "expected a form submission");
   const action = String(form.get("action") ?? "");
   if (!ACTIONS.has(action)) {
-    return back(request, "action must be revoke or renew");
+    return back(request, view, "action must be revoke or renew");
   }
   try {
     await adminSend(`/api/admin/create/apps/${slug}/dev`, "POST", { action });
-    return back(request);
+    return back(request, view);
   } catch (error) {
     return back(
       request,
+      view,
       error instanceof Error ? error.message : "control plane unreachable"
     );
   }

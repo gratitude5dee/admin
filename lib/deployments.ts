@@ -291,3 +291,39 @@ export function actionRoute(
     ? { path: `${base}/suspend`, fields: {} }
     : { path: `${base}/dev`, fields: { action } };
 }
+
+/** The /deployments query an action form carries so the redirect lands on the same view. */
+export interface DeploymentsView {
+  days?: string | undefined;
+  channel?: string | undefined;
+  user_id?: string | undefined;
+}
+
+const VIEW_DAYS = /^\d{1,3}$/;
+const VIEW_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Only the values the page itself accepts survive: bad or default ones are dropped. */
+export function viewFields(view: DeploymentsView): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (view.days && VIEW_DAYS.test(view.days)) fields["days"] = view.days;
+  if (view.channel === "dev" || view.channel === "prod") fields["channel"] = view.channel;
+  if (view.user_id && VIEW_USER_ID.test(view.user_id)) fields["user_id"] = view.user_id;
+  return fields;
+}
+
+/** `?days=7&channel=dev&error=…` for the 303 back to /deployments; "" when nothing carries. */
+export function viewSearch(view: DeploymentsView, error?: string): string {
+  const params = new URLSearchParams(viewFields(view));
+  if (error) params.set("error", error);
+  const search = params.toString();
+  return search ? `?${search}` : "";
+}
+
+/** Reads the view fields an action form posted (a non-form body reads as an empty view). */
+export function viewFromForm(form: { get(name: string): unknown } | null): DeploymentsView {
+  const pick = (name: string): string | undefined => {
+    const value = form?.get(name);
+    return typeof value === "string" ? value : undefined;
+  };
+  return { days: pick("days"), channel: pick("channel"), user_id: pick("user_id") };
+}

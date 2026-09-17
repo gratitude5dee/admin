@@ -87,4 +87,22 @@ describe("POST /api/deployments/apps/[slug]/suspend", () => {
     const response = await POST(request(), withSlug("alice-tour"));
     expect(location(response).searchParams.get("error")).toBe("fetch failed");
   });
+
+  it("returns to the view the form came from", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const response = await POST(
+      new NextRequest("https://admin.example.com/api/deployments/apps/alice-tour/suspend", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ days: "7", channel: "prod" }).toString(),
+      }),
+      { params: Promise.resolve({ slug: "alice-tour" }) }
+    );
+    expect(response.status).toBe(303);
+    const url = new URL(response.headers.get("location")!);
+    expect(url.pathname).toBe("/deployments");
+    expect(url.searchParams.get("days")).toBe("7");
+    expect(url.searchParams.get("channel")).toBe("prod");
+    expect(url.searchParams.get("error")).toBeNull();
+  });
 });

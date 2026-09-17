@@ -57,7 +57,7 @@ Nothing in the visual system changes: dark operator theme, mono type, `Stat` acc
 | A1 | **Metadata only (C4).** No endpoint used here returns content; if a payload ever carries a field named `prompt`, `plan`, `source`, `body`, or `message`, the page drops it before render and a test asserts the drop. |
 | A2 | **Server-side only.** `ADMIN_API_KEY` and `CONTROL_PLANE_URL` never reach the browser; every new page is a server component; every action is a `POST` to a same-origin `/api/*` route that proxies with the bearer. |
 | A3 | **Actions are confirm-gated and audited.** Revoke, renew, suspend render a native `confirm()`-free two-step (button → inline "confirm" button) and the control plane writes the audit row; the UI shows the resulting state after redirect, never an optimistic one. |
-| A4 | **Panels fail independently.** Each panel uses `adminGetSafe`; one 5xx renders one `LoadError`, not a blank page. |
+| A4 | **Panels fail independently.** Each panel uses `adminGetSafe` and renders its own `LoadError`; a 5xx never blanks the page. When several panels share one request (the Create page's six panels read `/api/admin/create` once), each of them shows the failure. |
 | A5 | **No new dependencies.** dither-kit, d3-scale/shape, motion, clsx, tailwind-merge only. |
 | A6 | **Numbers reconcile.** Grouped token totals equal ungrouped totals for the same window (asserted in a helper test against fixture data); the Deployments count of production apps equals the Create funnel's `production` count for the same window. |
 
@@ -191,7 +191,7 @@ README.md                                  Panels list += Deployments, Create; T
 
 **AD1 — Deployments page.** Extract `FleetChannels`, build `/deployments`, the two action routes, `lib/deployments.ts` + tests. Exit: page renders from the mock; revoke → mock logs the bearer POST → redirect shows `dev —`; expiry accents match `lib/deployments.test.ts`.
 
-**AD2 — Create page.** `/create` with funnel, builds, quality, relay, templates, budget. Exit: every panel renders; a mock 500 on `/api/admin/create` renders one `LoadError` and the rest of the page.
+**AD2 — Create page.** `/create` with funnel, builds, quality, relay, templates, budget. Exit: every panel renders; a mock 500 on `/api/admin/create` renders a `LoadError` in each of the six panels while the header and range toggle still render.
 
 **AD3 — Tokens groups.** Tabs, grouped tables, stage comparison, `cost_estimated` badge, `lib/tokens.ts` + tests. Exit: `groupTotals(stage) == totals` on the fixture; the badge appears only on estimated rows.
 
@@ -204,7 +204,7 @@ Dependency: AD0 → {AD1, AD2, AD3} (parallel) → AD4. airv2 §12 endpoints mus
 ## 8. Test plan additions (`test-plan.md`)
 
 - **T6 Deployments** — `/deployments` shows Platform stats, both channels, two app rows; the dev-expiring row is orange; clicking `revoke dev` shows an inline confirm, confirming POSTs with the bearer (mock log) and the row re-renders with `dev —`; the ADMIN_API_KEY string is absent from page HTML and `.next/static`.
-- **T7 Create** — funnel bars in stage order; `failed` pink; `by_rule` sorted desc; with the mock returning 500 for `/api/admin/create`, the page shows one "Failed to load" and no crash.
+- **T7 Create** — funnel bars in stage order; `failed` pink; `by_rule` sorted desc; with the mock returning 500 for `/api/admin/create`, every panel shows its own "Failed to load" (six, one per panel) and nothing crashes.
 - **T8 Tokens groups** — each `?group=` tab renders; `stage` tab shows the Astra vs GLM card; `~` prefix on estimated rows; ungrouped totals equal grouped sums (visible numbers).
 - **T9 Reconcile** — the home row's `production apps` equals `/deployments` `prod_live` and `/create` funnel `production` for the same window.
 

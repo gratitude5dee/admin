@@ -132,9 +132,18 @@ const MEMBER_ACCESS = new RegExp(
   "g"
 );
 
-/** Every `<obj>.<forbidden>` read in code (not comments, strings or labels). */
+/** `row["body"]`, `row['body']` and `row?.["body"]` read the same field as `row.body`; normalise before stripping. */
+const BRACKET_ACCESS = new RegExp(
+  String.raw`(\?\.)?\[\s*(["'])(${FORBIDDEN.join("|")})\2\s*\]`,
+  "g"
+);
+
+/** Every `<obj>.<forbidden>` or `<obj>["<forbidden>"]` read in code (not comments, strings or labels). */
 export function forbiddenAccesses(source: string): string[] {
-  const code = stripCommentsAndStrings(source);
+  const normalised = source.replace(BRACKET_ACCESS, (_match, optional: string | undefined, _quote, key: string) =>
+    `${optional ? "?." : "."}${key}`
+  );
+  const code = stripCommentsAndStrings(normalised);
   const found: string[] = [];
   for (const match of code.matchAll(MEMBER_ACCESS)) {
     found.push(match[1].replace(/\?\./g, "."));
@@ -170,12 +179,17 @@ describe("A1 metadata-only guard", () => {
       const x = { body: 1, message: row.status };
       row.body = null;
       send.message(row)
+      <td>{row["body"]}</td>
+      <td>{item?.['message']}</td>
+      const key = 'row["prompt"]';
     `;
     expect(forbiddenAccesses(sample)).toEqual([
       "row.body",
       "item.source",
       "ops.medians_s.plan",
       "row.message",
+      "row.body",
+      "item.message",
     ]);
   });
 

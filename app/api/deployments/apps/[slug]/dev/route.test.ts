@@ -121,4 +121,44 @@ describe("POST /api/deployments/apps/[slug]/dev", () => {
     const response = await POST(request({ action: "revoke" }), withSlug("alice-tour"));
     expect(location(response).search).toBe("");
   });
+
+  it("returns to the view the form came from, keeping the filters and the error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ error: "app alice-tour has no dev release to renew" }, { status: 409 })
+    );
+    const response = await POST(
+      request({ action: "renew", days: "7", channel: "dev", user_id: "5b4e9c0a-2f1d-4b8a-9c3e-1a2b3c4d5e6f" }),
+      withSlug("alice-tour")
+    );
+    const url = location(response);
+    expect(url.pathname).toBe("/deployments");
+    expect(url.searchParams.get("days")).toBe("7");
+    expect(url.searchParams.get("channel")).toBe("dev");
+    expect(url.searchParams.get("user_id")).toBe("5b4e9c0a-2f1d-4b8a-9c3e-1a2b3c4d5e6f");
+    expect(url.searchParams.get("error")).toBe("app alice-tour has no dev release to renew");
+  });
+
+  it("drops view values the page would not accept", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const response = await POST(
+      request({ action: "revoke", days: "7d", channel: "all", user_id: "alice" }),
+      withSlug("alice-tour")
+    );
+    expect(location(response).search).toBe("");
+  });
+
+  it("answers a non-form body with the redirect and a reason, never a 500", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch");
+    const response = await POST(
+      new NextRequest("https://admin.example.com/api/deployments/apps/alice-tour/dev", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke" }),
+      }),
+      withSlug("alice-tour")
+    );
+    expect(response.status).toBe(303);
+    expect(location(response).searchParams.get("error")).toBe("expected a form submission");
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

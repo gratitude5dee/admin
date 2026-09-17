@@ -1,9 +1,9 @@
 {
   "date": "2026-09-17",
-  "generated_at": "2026-09-17T21:07:01.119Z",
+  "generated_at": "2026-09-17T22:04:16.045Z",
   "base_url": "http://localhost:3111",
   "control_plane": "http://localhost:4600",
-  "build_id": "QXxJ2WnjyX8ZrlYu4ZSTn",
+  "build_id": "zJGMh5tLqL5deAnXyqJyo",
   "viewport": {
     "width": 1280,
     "height": 800
@@ -95,7 +95,7 @@
         "dev live = 0 after revoke",
         "dev expiring (7d) = 0 and no longer orange",
         "revoke dev is disabled once there is no dev release",
-        "no bearer in the HTML of /deployments"
+        "no bearer in the HTML of /deployments?days=7"
       ]
     },
     {
@@ -211,7 +211,7 @@
       "http://localhost:3111/",
       "http://localhost:3111/deployments",
       "http://localhost:3111/deployments",
-      "http://localhost:3111/deployments",
+      "http://localhost:3111/deployments?days=7",
       "http://localhost:3111/create",
       "http://localhost:3111/tokens?group=stage",
       "http://localhost:3111/tokens?group=provider",
@@ -220,5 +220,5 @@
     "leaks": [],
     "static_scanned": true
   },
-  "size_bytes": 2381583
+  "size_bytes": 2333010
 }

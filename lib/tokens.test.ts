@@ -158,6 +158,12 @@ describe("groupTotals and reconciliation (A6)", () => {
     expect(result.grouped.prompt_tokens).toBe(150001);
     expect(result.totals).toBe(TOTALS);
   });
+
+  it("refuses a row whose total_tokens is not prompt + completion", () => {
+    const [first, ...rest] = STAGE;
+    const corrupted = grouped("stage", [{ ...first!, total_tokens: first!.total_tokens + 1 }, ...rest]);
+    expect(reconcileGroups(corrupted).matches).toBe(false);
+  });
 });
 
 describe("ordering", () => {

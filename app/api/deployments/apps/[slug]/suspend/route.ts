@@ -8,15 +8,15 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { adminSend } from "@/lib/controlPlane";
-import { isAppSlug } from "@/lib/deployments";
+import { isAppSlug, viewFromForm, viewSearch, type DeploymentsView } from "@/lib/deployments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function back(request: NextRequest, error?: string): NextResponse {
+function back(request: NextRequest, view: DeploymentsView, error?: string): NextResponse {
   const url = request.nextUrl.clone();
   url.pathname = "/deployments";
-  url.search = error ? `?error=${encodeURIComponent(error)}` : "";
+  url.search = viewSearch(view, error);
   return NextResponse.redirect(url, 303);
 }
 
@@ -25,13 +25,16 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<NextResponse> {
   const { slug } = await params;
-  if (!isAppSlug(slug)) return back(request, "invalid app slug");
+  // The form only carries the view to return to; a non-form body carries none.
+  const view = viewFromForm(await request.formData().catch(() => null));
+  if (!isAppSlug(slug)) return back(request, view, "invalid app slug");
   try {
     await adminSend(`/api/admin/create/apps/${slug}/suspend`, "POST", {});
-    return back(request);
+    return back(request, view);
   } catch (error) {
     return back(
       request,
+      view,
       error instanceof Error ? error.message : "control plane unreachable"
     );
   }

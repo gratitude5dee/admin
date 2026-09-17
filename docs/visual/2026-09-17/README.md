@@ -1,6 +1,6 @@
 # Visual walkthrough — 2026-09-17
 
-Recorded run of the operator dashboard (production build `QXxJ2WnjyX8ZrlYu4ZSTn`, `next start` on :3111) against the mock control plane (`mock-cp.mjs` on :4600), driven by Playwright/Chromium at 1280×800. Status: **passed**. 86 assertions.
+Recorded run of the operator dashboard (production build `zJGMh5tLqL5deAnXyqJyo`, `next start` on :3111) against the mock control plane (`mock-cp.mjs` on :4600), driven by Playwright/Chromium at 1280×800. Status: **passed**. 86 assertions.
 
 ## What it proves
 
