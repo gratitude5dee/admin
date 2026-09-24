@@ -123,6 +123,15 @@ const data = {
       { user_id: U2, username: "bob", provider_box_id: "bx_bravo", state: "stopped", provider: "ascii", environment: "ubuntu", channel: "prod", template_version: HERMES_OLD, baseline_version: "2026.01.28-9876fed", baseline_synced_at: "2026-01-28T12:00:00Z", last_active_at: "2026-02-09T18:00:00Z", starts: 4, stops: 4, runs: 7, box_seconds: 1200 },
     ],
   },
+  "/api/admin/deliveries": {
+    days: 7,
+    deliveries: [
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1", user_id: U1, schedule_id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1", schedule_name: "site watch — checkout", channel: "imessage", disposition: "delivered", content_hash: "h1", excerpt: "checkout page is 500ing — woke you", created_at: "2026-02-10T09:58:00Z" },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2", user_id: U1, schedule_id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1", schedule_name: "site watch — checkout", channel: "none", disposition: "suppressed_silent", content_hash: null, excerpt: null, created_at: "2026-02-10T09:53:00Z" },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3", user_id: U1, schedule_id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2", schedule_name: "weekly digest", channel: "none", disposition: "suppressed_repeat", content_hash: "h2", excerpt: "same output as 6h ago", created_at: "2026-02-10T08:00:00Z" },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4", user_id: U2, schedule_id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3", schedule_name: "inbox sweep", channel: "none", disposition: "suppressed_transient", content_hash: null, excerpt: "Operation interrupted", created_at: "2026-02-10T07:30:00Z" },
+    ],
+  },
   "/api/admin/fleet/releases": {
     releases: [
       { id: REL_NEW, version: "2026.02.10-abc1234", git_sha: "abc1234abc1234abc1234abc1234abc1234abc12", hermes_ref: HERMES_NEW, notes: "mini-app cards", created_at: "2026-02-10T09:00:00Z" },

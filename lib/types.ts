@@ -254,6 +254,23 @@ export interface TracesResponse {
   receipts: Record<string, string | number | null>[];
 }
 
+/** /api/admin/deliveries — the schedule_deliveries ledger: what each
+ * claimed schedule tick sent or suppressed, and why. */
+export interface DeliveriesResponse {
+  days: number;
+  deliveries: {
+    id: string;
+    user_id: string;
+    schedule_id: string | null;
+    schedule_name: string | null;
+    channel: string;
+    disposition: string;
+    content_hash: string | null;
+    excerpt: string | null;
+    created_at: string;
+  }[];
+}
+
 /** /api/admin/learning — the V10 learning plan plus content-free receipts. */
 export interface LearningResponse {
   plan: {

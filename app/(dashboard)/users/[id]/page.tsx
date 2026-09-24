@@ -3,6 +3,7 @@ import { adminGetSafe } from "@/lib/controlPlane";
 import { fetchUserDirectory } from "@/lib/users";
 import type {
   BoxesResponse,
+  DeliveriesResponse,
   FeedbackResponse,
   HealthResponse,
   TimeseriesResponse,
@@ -50,7 +51,7 @@ export default async function UserDetailPage({
   const memoryRequested = queryParams.health_memory === "1";
   const wakeRequested =
     memoryRequested && queryParams.health_wake === "1";
-  const [directory, series, tokens, boxes, traces, feedback, health] =
+  const [directory, series, tokens, boxes, traces, feedback, health, deliveries] =
     await Promise.all([
       fetchUserDirectory(),
       adminGetSafe<TimeseriesResponse>(
@@ -66,6 +67,9 @@ export default async function UserDetailPage({
         `/api/admin/health?days=${days}&user_id=${query}&memory=${
           memoryRequested ? 1 : 0
         }&wake=${wakeRequested ? 1 : 0}`,
+      ),
+      adminGetSafe<DeliveriesResponse>(
+        `/api/admin/deliveries?days=${days}&user_id=${query}&limit=100`
       ),
     ]);
 
@@ -293,6 +297,30 @@ export default async function UserDetailPage({
               .map((receipt) =>
                 TRACE_COLUMNS.map((column) => receipt[column] ?? null)
               )}
+          />
+        )}
+      </Panel>
+
+      <Panel
+        title="Schedule deliveries"
+        note="Per-tick ledger — what each watch/schedule sent or suppressed, and why (delivered / silent / transient / repeat / failed)."
+      >
+        {deliveries.error !== null ? (
+          <LoadError error={deliveries.error} />
+        ) : deliveries.data.deliveries.length === 0 ? (
+          <p className="font-mono text-[11px] text-muted-foreground">
+            No schedule ticks in this window.
+          </p>
+        ) : (
+          <DataTable
+            headers={["created", "schedule", "disposition", "channel", "excerpt"]}
+            rows={deliveries.data.deliveries.map((d) => [
+              new Date(d.created_at).toLocaleString(),
+              d.schedule_name ?? d.schedule_id ?? "—",
+              d.disposition,
+              d.channel,
+              d.excerpt ?? "",
+            ])}
           />
         )}
       </Panel>
