@@ -365,6 +365,79 @@ function createOps(query) {
   };
 }
 
+// ---- V13 job ops (airv2 goal-create-v13 §12) -------------------------------
+// create_jobs rollup for the /create page's Deployments/Failures/token-use/
+// skill-use panels. Job rows are metadata only: ids, states, step names,
+// rule ids, percents — never prompt or code text.
+const CREATE_JOBS = [
+  { id: "5f7a1c2e-0001-4000-8000-000000000001", app_id: "app-alice-tour", kind: "initial", state: "live", step: "publish", percent: 100, round: 0, error_rule: null, skill_ver: 5, dev_url: "https://alice-tour.dev.wzrd.tech", created_at: iso(-26 * HOUR_MS), finished_at: iso(-25 * HOUR_MS) },
+  { id: "5f7a1c2e-0002-4000-8000-000000000002", app_id: "app-alice-tour", kind: "change", state: "running", step: "check", percent: 71, round: 1, error_rule: null, skill_ver: 5, dev_url: null, created_at: iso(-2 * HOUR_MS), finished_at: null },
+  { id: "5f7a1c2e-0003-4000-8000-000000000003", app_id: "app-bob-notes", kind: "initial", state: "stuck", step: "build", percent: 55, round: 3, error_rule: "tests.locked-removed", skill_ver: 4, dev_url: null, created_at: iso(-30 * HOUR_MS), finished_at: iso(-29 * HOUR_MS) },
+  { id: "5f7a1c2e-0004-4000-8000-000000000004", app_id: "app-bob-notes", kind: "change", state: "failed", step: "code", percent: 12, round: 0, error_rule: "turn.timeout", skill_ver: 4, dev_url: null, created_at: iso(-50 * HOUR_MS), finished_at: iso(-49 * HOUR_MS) },
+  { id: "5f7a1c2e-0005-4000-8000-000000000005", app_id: "app-alice-tour", kind: "initial", state: "superseded", step: "code", percent: 33, round: 0, error_rule: null, skill_ver: 5, dev_url: null, created_at: iso(-27 * HOUR_MS), finished_at: iso(-26 * HOUR_MS) },
+  { id: "5f7a1c2e-0006-4000-8000-000000000006", app_id: "app-carol-games", kind: "initial", state: "queued", step: "admit", percent: 2, round: 0, error_rule: null, skill_ver: 5, dev_url: null, created_at: iso(-20 * 60_000), finished_at: null },
+  { id: "5f7a1c2e-0007-4000-8000-000000000007", app_id: "app-dave-shop", kind: "initial", state: "cancelled", step: "check", percent: 64, round: 1, error_rule: null, skill_ver: 4, dev_url: null, created_at: iso(-70 * HOUR_MS), finished_at: iso(-69 * HOUR_MS) },
+];
+
+function createJobs(query) {
+  const days = windowDays(query);
+  const since = Date.now() - days * DAY_MS;
+  const rows = CREATE_JOBS.filter((job) => Date.parse(job.created_at) >= since);
+  const byState = {};
+  const byKind = {};
+  const bySkill = {};
+  const failures = [];
+  let devLive = 0;
+  for (const job of rows) {
+    byState[job.state] = (byState[job.state] ?? 0) + 1;
+    byKind[job.kind] = (byKind[job.kind] ?? 0) + 1;
+    if (job.skill_ver !== null) {
+      const ver = String(job.skill_ver);
+      bySkill[ver] = (bySkill[ver] ?? 0) + 1;
+    }
+    if (job.state === "live" && job.dev_url !== null) devLive += 1;
+    if (job.state === "stuck" || job.state === "failed" || job.state === "cancelled") {
+      failures.push({ id: job.id, app_id: job.app_id, state: job.state, step: job.step, rule: job.error_rule, round: job.round, created_at: job.created_at });
+    }
+  }
+  failures.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+  // Token use folds the same TOKEN_LEDGER the Tokens page reads, limited to
+  // create:<slug> projects (V13 §14 metering: plan → brief, build → code/fix).
+  const createRows = TOKEN_LEDGER.filter((row) => row.project.startsWith("create:"));
+  const fold = (key) => {
+    const byKey = new Map();
+    for (const row of createRows) {
+      const acc = byKey.get(row[key]) ?? { key: row[key], runs: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost_usd: 0, cost_estimated: false };
+      acc.runs += row.runs;
+      acc.prompt_tokens += row.prompt_tokens;
+      acc.completion_tokens += row.completion_tokens;
+      acc.total_tokens += row.prompt_tokens + row.completion_tokens;
+      acc.cost_usd = cents(acc.cost_usd + row.cost_usd);
+      acc.cost_estimated ||= row.cost_estimated;
+      byKey.set(row[key], acc);
+    }
+    return [...byKey.values()].sort((a, b) => b.total_tokens - a.total_tokens);
+  };
+  return {
+    window_days: days,
+    jobs: { total: rows.length, by_state: byState, by_kind: byKind, dev_live: devLive, by_skill_ver: bySkill, failures: failures.slice(0, 25) },
+    token_usage: { by_stage: fold("stage"), by_project: fold("project").slice(0, 20) },
+    skill_use: { upgrades_queued: 2, by_skill_ver: bySkill },
+  };
+}
+
+function createHealth() {
+  return {
+    ok: false,
+    checks: { lane_env: "ok", bridge_secret: "ok", jobs_origin: "ok", live_token_secret: "ok", worker_http: "fail" },
+    reasons: ["worker_http: fail"],
+    skill_version_min: 5,
+    max_fix_rounds: 3,
+    compile_max_per_turn: 5,
+    dev_origin_suffix: "dev.wzrd.tech",
+  };
+}
+
 // One ledger of run buckets; every tokens?group= is a fold over it, so the
 // grouped sums equal the ungrouped totals by construction (asserted at boot).
 // Astra plan turns are priced from the OpenAI list until GMI confirms a rate
@@ -520,6 +593,12 @@ http
         return sendJson(res, 400, { error: "channel must be dev or prod" });
       }
       return sendJson(res, 200, deployments(url.searchParams));
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/create/jobs") {
+      return sendJson(res, 200, createJobs(url.searchParams));
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/create/health") {
+      return sendJson(res, 200, createHealth());
     }
     if (req.method === "GET" && url.pathname === "/api/admin/create") {
       return sendJson(res, 200, createOps(url.searchParams));

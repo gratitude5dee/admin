@@ -487,3 +487,48 @@ export interface TokensGroupedResponse extends TokensResponse {
   group: TokensGroup;
   groups: { key: string; runs: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number; cost_estimated: boolean }[];
 }
+
+/** V13 §12 `/api/admin/create/jobs?days=` — job ops for the /create page. */
+export interface CreateJobFailure {
+  id: string;
+  app_id: string | null;
+  state: string;
+  step: string | null;
+  rule: string | null;
+  round: number | null;
+  created_at: string | null;
+}
+export interface CreateJobsRollup {
+  total: number;
+  by_state: Record<string, number>;
+  by_kind: Record<string, number>;
+  dev_live: number;
+  by_skill_ver: Record<string, number>;
+  failures: CreateJobFailure[];
+}
+export interface CreateTokenGroup {
+  key: string;
+  runs: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  cost_estimated: boolean;
+}
+export interface CreateJobsResponse {
+  window_days: number;
+  jobs: CreateJobsRollup;
+  token_usage: { by_stage: CreateTokenGroup[]; by_project: CreateTokenGroup[] };
+  skill_use: { upgrades_queued: number; by_skill_ver: Record<string, number> };
+}
+
+/** V13 §12 `/api/admin/create/health` — is the Cloudflare lane ready. */
+export interface CreateHealthResponse {
+  ok: boolean;
+  checks: Record<string, "ok" | "fail" | "skip">;
+  reasons: string[];
+  skill_version_min: number;
+  max_fix_rounds: number;
+  compile_max_per_turn: number;
+  dev_origin_suffix: string;
+}
