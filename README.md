@@ -22,6 +22,12 @@ prompts, or memory are stored or displayed (constraint C4).
   (`/api/admin/onboarding`)
 - **Skills** — template skill set and per-user template versions; per-skill
   usage is not metered control-plane-side (C4)
+- **Fleet** — template releases and channels (`/api/admin/fleet/releases`,
+  `/api/admin/fleet/channels`), canary→rolling-wave sync jobs
+  (`/api/admin/fleet/sync`), fleet box counts (`/api/admin/boxes`), and
+  platform settings (`/api/admin/settings`); proxied actions `POST
+  /api/fleet/sync` (canary select, repin hermes), `POST
+  /api/fleet/releases` (cut release), `POST /api/settings`
 - **Deployments** — what is live where: control-plane git SHA, Kit version
   and Dispatcher health, the template release each fleet channel points at,
   and every Create app's dev release (`link.wzrd.tech/<u>/<a>`, expiry),
@@ -32,9 +38,19 @@ prompts, or memory are stored or displayed (constraint C4).
 - **Create** — Create intake health: stage funnel and medians, builds and
   the rules they failed, QA distribution, tests pass ratio, progress-relay and
   mirror health, template mix and budget exhaustions (`/api/admin/create`)
+- **Migrations** — provider migrations ascii↔tenki
+  (`/api/admin/migrations`, `?user_id=`): phase tracking
+  precopy → waiting_for_idle → cutover → route_committed → cleanup
 - **Traces** — receipt metadata with CSV/JSONL export (`/api/admin/traces`)
 - **Costs** — creative/ad/storage spend (`/api/admin/costs`) plus LLM cost
 - **Feedback** — in-air bug/feature inbox (`/api/admin/feedback`)
+- **Learning** — learning-plane receipts (`/api/admin/learning`),
+  content-free only (L4)
+- **User detail** — `/users/[id]`: per-user timeseries, boxes, tokens,
+  traces, feedback, health, and the schedule-deliveries ledger
+  (`/api/admin/deliveries` — per-tick delivered/suppressed_* dispositions
+  with reasons); confirm-gated provider switch `POST /api/users/provider`
+  creates a fresh Tenki machine, repoints the user, and deletes the old Box
 
 ## Auth
 
