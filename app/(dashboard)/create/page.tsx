@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { adminGetSafe } from "@/lib/controlPlane";
-import type { CreateOpsResponse } from "@/lib/types";
+import type {
+  CreateHealthResponse,
+  CreateJobsResponse,
+  CreateOpsResponse,
+} from "@/lib/types";
 import { DataTable, LoadError, Panel, Stat } from "@/components/panel";
 import { BreakdownPieChart, LabeledBarChart } from "@/components/charts";
 import { RangeToggle, rangeDays } from "@/components/range-toggle";
@@ -9,8 +13,12 @@ import {
   buildFailedAccent,
   buildFailureRatio,
   failedAccent,
+  failureRows,
   formatPct,
   funnelBars,
+  healthCheckRows,
+  jobStateAccent,
+  jobStateBars,
   medianLabel,
   mirrorAccent,
   openIntakes,
@@ -18,9 +26,11 @@ import {
   ratio,
   relayAccent,
   relayFailureRatio,
+  skillVerRows,
   sortedRules,
   stripContentFields,
   templateSlices,
+  tokenGroupRows,
 } from "@/lib/createOps";
 
 export const dynamic = "force-dynamic";
@@ -203,6 +213,147 @@ function BudgetBody({ ops }: { ops: CreateOpsResponse }) {
   );
 }
 
+function LaneHealthBody({ health }: { health: CreateHealthResponse }) {
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Stat
+          label="lane"
+          value={health.ok ? "ready" : "not ready"}
+          accent={health.ok ? "green" : "pink"}
+        />
+        <Stat label="skill floor" value={`v${health.skill_version_min}`} />
+        <Stat label="max fix rounds" value={String(health.max_fix_rounds)} />
+        <Stat label="compile / turn" value={String(health.compile_max_per_turn)} />
+        <Stat label="dev origin" value={health.dev_origin_suffix} sub="suffix" />
+      </div>
+      <DataTable
+        headers={["check", "state"]}
+        rows={healthCheckRows(health.checks)}
+      />
+      {health.reasons.length > 0 && (
+        <p className="mt-3 font-mono text-[11px] text-pink-400">
+          {health.reasons.join(" · ")}
+        </p>
+      )}
+    </>
+  );
+}
+
+function JobDeploymentsBody({ ops }: { ops: CreateJobsResponse }) {
+  const { jobs } = ops;
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Stat label="jobs" value={String(jobs.total)} accent="blue" />
+        <Stat
+          label="running"
+          value={String(jobs.by_state.running ?? 0)}
+          accent="purple"
+        />
+        <Stat label="queued" value={String(jobs.by_state.queued ?? 0)} />
+        <Stat
+          label="live dev links"
+          value={String(jobs.dev_live)}
+          accent="green"
+        />
+        <Stat
+          label="stuck + failed"
+          value={String(
+            (jobs.by_state.stuck ?? 0) + (jobs.by_state.failed ?? 0)
+          )}
+          accent={jobStateAccent(jobs.by_state)}
+        />
+      </div>
+      <p className="mb-1 font-mono text-[10px] text-muted-foreground">
+        jobs by state
+      </p>
+      <LabeledBarChart
+        valueLabel="jobs"
+        color="blue"
+        data={jobStateBars(jobs.by_state)}
+      />
+      <p className="mt-4 mb-1 font-mono text-[10px] text-muted-foreground">
+        jobs by kind
+      </p>
+      <DataTable
+        headers={["kind", "jobs"]}
+        rows={Object.entries(jobs.by_kind).map(([kind, count]) => [
+          kind,
+          String(count),
+        ])}
+      />
+    </>
+  );
+}
+
+function JobFailuresBody({ ops }: { ops: CreateJobsResponse }) {
+  const rows = failureRows(ops.jobs.failures);
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat
+          label="attention"
+          value={String(ops.jobs.failures.length)}
+          accent={ops.jobs.failures.length > 0 ? "pink" : "green"}
+        />
+      </div>
+      <DataTable
+        headers={["job", "app", "state", "step", "rule", "round", "opened"]}
+        rows={rows.length > 0 ? rows : [["—", "—", "none", "—", "—", "—", "—"]]}
+      />
+    </>
+  );
+}
+
+function JobTokensBody({ ops }: { ops: CreateJobsResponse }) {
+  return (
+    <div className="grid gap-6 sm:grid-cols-2">
+      <div>
+        <p className="mb-2 font-mono text-[10px] text-muted-foreground">
+          by stage — plan = brief turns, build = code/fix turns
+        </p>
+        <DataTable
+          headers={["stage", "runs", "tokens", "cost"]}
+          rows={tokenGroupRows(ops.token_usage.by_stage)}
+        />
+      </div>
+      <div>
+        <p className="mb-2 font-mono text-[10px] text-muted-foreground">
+          by project (top 20)
+        </p>
+        <DataTable
+          headers={["project", "runs", "tokens", "cost"]}
+          rows={tokenGroupRows(ops.token_usage.by_project)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SkillUseBody({ ops }: { ops: CreateJobsResponse }) {
+  return (
+    <>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat
+          label="upgrades queued"
+          value={String(ops.skill_use.upgrades_queued)}
+          sub="stale Boxes told to update"
+          accent={ops.skill_use.upgrades_queued > 0 ? "orange" : "none"}
+        />
+        <Stat
+          label="versions seen"
+          value={String(Object.keys(ops.skill_use.by_skill_ver).length)}
+        />
+      </div>
+      <DataTable
+        headers={["skill version", "jobs"]}
+        rows={skillVerRows(ops.skill_use.by_skill_ver)}
+      />
+    </>
+  );
+}
+
 export default async function CreatePage({
   searchParams,
 }: {
@@ -212,6 +363,10 @@ export default async function CreatePage({
   const fetched = await adminGetSafe<CreateOpsResponse>(
     `/api/admin/create?days=${days}`
   );
+  const [jobsFetched, healthFetched] = await Promise.all([
+    adminGetSafe<CreateJobsResponse>(`/api/admin/create/jobs?days=${days}`),
+    adminGetSafe<CreateHealthResponse>("/api/admin/create/health"),
+  ]);
   // A1: drop any content-named field before anything renders.
   const create: typeof fetched =
     fetched.error === null
@@ -222,12 +377,68 @@ export default async function CreatePage({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-mono text-[10px] text-muted-foreground">
-          From /api/admin/create?days={days} — Create intake health: funnel,
-          builds, QA, progress relay, mirror, templates and budget. Counts,
-          medians and rule ids only (C4).
+          From /api/admin/create{",/jobs,/health"}?days={days} — Create ops:
+          the V13 job lane (deployments, failures, token use, skill use) and
+          the V12 intake funnel beneath it. Counts, medians and rule ids only
+          (C4).
         </p>
         <RangeToggle days={days} basePath="/create" />
       </div>
+
+      <Panel
+        title="Job lane health"
+        note="Readiness for the Cloudflare Create lane (V13): Vercel-side env, the create.wzrd.tech Worker's /v1/health probe, the minimum skill version in force and the knobs the Workflow runs with. Any 'fail' names the piece to fix."
+      >
+        {healthFetched.error !== null ? (
+          <LoadError error={healthFetched.error} />
+        ) : (
+          <LaneHealthBody health={healthFetched.data} />
+        )}
+      </Panel>
+
+      <Panel
+        title={`Job deployments (${days}d)`}
+        note="CreateJob rows in the window: states in the order the Workflow walks them (admit → brief → code → build → check → publish), live dev links, and initial vs change jobs."
+      >
+        {jobsFetched.error !== null ? (
+          <LoadError error={jobsFetched.error} />
+        ) : (
+          <JobDeploymentsBody ops={jobsFetched.data} />
+        )}
+      </Panel>
+
+      <Panel
+        title={`Job failures (${days}d)`}
+        note="Newest stuck, failed or cancelled jobs — the step the job was on, the rule that stopped it (or —) and the fix round it reached. Job ids and rule ids only (C4)."
+      >
+        {jobsFetched.error !== null ? (
+          <LoadError error={jobsFetched.error} />
+        ) : (
+          <JobFailuresBody ops={jobsFetched.data} />
+        )}
+      </Panel>
+
+      <Panel
+        title={`Job token usage (${days}d)`}
+        note="create:<slug> receipts folded by stage and by project — the V13 metering the Tokens page reads by user/model. 'est' marks list-priced runs."
+      >
+        {jobsFetched.error !== null ? (
+          <LoadError error={jobsFetched.error} />
+        ) : (
+          <JobTokensBody ops={jobsFetched.data} />
+        )}
+      </Panel>
+
+      <Panel
+        title={`Skill use (${days}d)`}
+        note="x-air-skill versions the jobs ran under and the upgrade count queued to stale Boxes (F10). A tail on an old version means the fleet sync hasn't reached every Box."
+      >
+        {jobsFetched.error !== null ? (
+          <LoadError error={jobsFetched.error} />
+        ) : (
+          <SkillUseBody ops={jobsFetched.data} />
+        )}
+      </Panel>
 
       <Panel
         title={`Intake funnel (${days}d)`}

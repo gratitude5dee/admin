@@ -1,7 +1,11 @@
 import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CreateOpsResponse } from "@/lib/types";
+import type {
+  CreateHealthResponse,
+  CreateJobsResponse,
+  CreateOpsResponse,
+} from "@/lib/types";
 
 vi.mock("server-only", () => ({}));
 // dither-kit charts paint on a canvas; stand in with markup that exposes the
@@ -41,6 +45,43 @@ const OPS: CreateOpsResponse = {
   by_template: { landing: 2, store: 1, tool: 1 },
 };
 
+const JOBS: CreateJobsResponse = {
+  window_days: 7,
+  jobs: {
+    total: 7,
+    by_state: { live: 1, running: 1, queued: 1, stuck: 1, failed: 1, cancelled: 1, superseded: 1 },
+    by_kind: { initial: 5, change: 2 },
+    dev_live: 1,
+    by_skill_ver: { "5": 4, "4": 3 },
+    failures: [
+      { id: "5f7a1c2e-0003-4000-8000-000000000003", app_id: "app-bob-notes", state: "stuck", step: "build", rule: "tests.locked-removed", round: 3, created_at: "2026-09-23T10:00:00.000Z" },
+      { id: "5f7a1c2e-0004-4000-8000-000000000004", app_id: "app-bob-notes", state: "failed", step: "code", rule: "turn.timeout", round: 0, created_at: "2026-09-22T10:00:00.000Z" },
+      { id: "5f7a1c2e-0007-4000-8000-000000000007", app_id: "app-dave-shop", state: "cancelled", step: "check", rule: null, round: 1, created_at: "2026-09-21T10:00:00.000Z" },
+    ],
+  },
+  token_usage: {
+    by_stage: [
+      { key: "build", runs: 6, prompt_tokens: 50000, completion_tokens: 18000, total_tokens: 68000, cost_usd: 1.0, cost_estimated: false },
+      { key: "plan", runs: 5, prompt_tokens: 60000, completion_tokens: 12000, total_tokens: 72000, cost_usd: 1.21, cost_estimated: true },
+    ],
+    by_project: [
+      { key: "create:alice-tour", runs: 9, prompt_tokens: 85000, completion_tokens: 25000, total_tokens: 110000, cost_usd: 1.71, cost_estimated: true },
+      { key: "create:bob-notes", runs: 5, prompt_tokens: 40000, completion_tokens: 9500, total_tokens: 49500, cost_usd: 0.8, cost_estimated: false },
+    ],
+  },
+  skill_use: { upgrades_queued: 2, by_skill_ver: { "5": 4, "4": 3 } },
+};
+
+const HEALTH: CreateHealthResponse = {
+  ok: false,
+  checks: { lane_env: "ok", bridge_secret: "ok", jobs_origin: "ok", live_token_secret: "ok", worker_http: "fail" },
+  reasons: ["worker_http: fail"],
+  skill_version_min: 5,
+  max_fix_rounds: 3,
+  compile_max_per_turn: 5,
+  dev_origin_suffix: "dev.wzrd.tech",
+};
+
 async function render(days?: string): Promise<string> {
   const tree = await CreatePage({ searchParams: Promise.resolve({ days }) });
   return renderToStaticMarkup(tree);
@@ -63,19 +104,37 @@ describe("/create page", () => {
     vi.restoreAllMocks();
   });
 
-  function serve(body: unknown, status = 200) {
+  // Dispatch by path: the page fetches the funnel, the jobs rollup and the
+  // lane health (jobs + health together after the funnel resolves).
+  function serve(
+    ops: unknown = OPS,
+    jobs: unknown = JOBS,
+    health: unknown = HEALTH,
+    status = 200
+  ) {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      requested.push(String(input));
+      const url = String(input);
+      requested.push(url);
+      const body = url.includes("/api/admin/create/jobs")
+        ? jobs
+        : url.includes("/api/admin/create/health")
+          ? health
+          : ops;
       return new Response(JSON.stringify(body), { status });
     });
   }
 
-  it("reads one window of /api/admin/create and draws the funnel in stage order", async () => {
+  it("reads the funnel, jobs rollup and lane health and draws the funnel in stage order", async () => {
     serve(OPS);
     const html = await render("30");
-    expect(requested).toEqual(["https://air.example.com/api/admin/create?days=30"]);
+    expect(requested).toEqual([
+      "https://air.example.com/api/admin/create?days=30",
+      "https://air.example.com/api/admin/create/jobs?days=30",
+      "https://air.example.com/api/admin/create/health",
+    ]);
 
-    const bars = html.match(/<ol data-chart="bar">(.*?)<\/ol>/)?.[1] ?? "";
+    // The funnel is the second bar chart — the first is jobs-by-state.
+    const bars = html.match(/<ol data-chart="bar">(.*?)<\/ol>/g)?.[1] ?? "";
     expect(bars.match(/<li>([a-z_]+)=/g)?.map((m) => m.slice(4, -1))).toEqual([
       "asking", "planning", "plan_sent", "revising", "confirmed", "building", "qa", "testing",
       "dev_ready", "finalizing", "decision_sent", "production",
@@ -104,20 +163,55 @@ describe("/create page", () => {
   it("lists build rules by count descending and links budget to the project token group", async () => {
     serve(OPS);
     const html = await render();
-    expect(html.indexOf("csp.host-reference")).toBeLessThan(
-      html.indexOf("tests.locked-removed")
+    // Scope to the Builds panel — the failures table may name the same rule.
+    const buildsPanel = html.slice(html.indexOf("Builds (7d)"));
+    expect(buildsPanel.indexOf("csp.host-reference")).toBeLessThan(
+      buildsPanel.indexOf("tests.locked-removed")
     );
     expect(html).toContain('href="/tokens?group=project"');
     expect(html).toContain("landing=2");
   });
 
   it("falls back to a LoadError in every panel on a 500 without crashing, keeping the range toggle", async () => {
-    serve({ error: "boom" }, 500);
+    serve({ error: "boom" }, { error: "boom" }, { error: "boom" }, 500);
     const html = await render("7");
-    expect(count(html, "Failed to load: control plane returned 500")).toBe(6);
+    expect(count(html, "Failed to load: control plane returned 500")).toBe(11);
     expect(html).toContain('href="/create?days=1"');
     expect(html).toContain("Intake funnel (7d)");
     expect(html).not.toContain("boom");
+  });
+
+  it("draws the V13 panels: lane health, job deployments, failures, token use and skill use", async () => {
+    serve();
+    const html = await render();
+    // Lane health: named checks + the failure reason.
+    expect(html).toContain("not ready");
+    expect(html).toContain("worker_http");
+    expect(html).toContain("bridge_secret");
+    // Deployments: state rollup + dev links.
+    expect(html).toContain("Job deployments (7d)");
+    expect(html).toContain("live dev links");
+    expect(html).toContain("running=1");
+    expect(html).toContain("stuck=1");
+    // Failures: the attention table carries step and rule ids.
+    expect(html).toContain("tests.locked-removed");
+    expect(html).toContain("turn.timeout");
+    expect(html).toContain("cancelled");
+    // Token usage: by stage and project, est flagging.
+    expect(html).toContain("Job token usage (7d)");
+    expect(html).toContain("create:alice-tour");
+    expect(html).toContain("$1.21 est");
+    // Skill use: version histogram + queued upgrades.
+    expect(html).toContain("Skill use (7d)");
+    expect(html).toContain("v5");
+    expect(html).toContain("upgrades queued");
+  });
+
+  it("a ready lane hides the reason line and marks live green", async () => {
+    serve(OPS, JOBS, { ...HEALTH, ok: true, checks: { ...HEALTH.checks, worker_http: "ok" }, reasons: [] });
+    const html = await render();
+    expect(html).toContain(">ready<");
+    expect(html).not.toContain("worker_http: fail");
   });
 
   it("never renders content-named fields or the bearer key (A1, A2)", async () => {

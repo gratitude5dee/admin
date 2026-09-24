@@ -196,3 +196,70 @@ function couldBeContent(value: unknown): boolean {
     typeof value === "boolean"
   );
 }
+
+/* ------------------------------------------------------------- V13 jobs */
+
+import type {
+  CreateHealthResponse,
+  CreateJobFailure,
+  CreateTokenGroup,
+} from "./types";
+
+/** Fixed display order for job states; unknown states append alphabetically. */
+export const JOB_STATE_ORDER = [
+  "running",
+  "queued",
+  "live",
+  "stuck",
+  "failed",
+  "cancelled",
+  "superseded",
+] as const;
+
+export function jobStateBars(byState: Record<string, number>): { label: string; value: number }[] {
+  const keys = [
+    ...JOB_STATE_ORDER.filter((state) => byState[state] !== undefined),
+    ...Object.keys(byState)
+      .filter((state) => !JOB_STATE_ORDER.includes(state as (typeof JOB_STATE_ORDER)[number]))
+      .sort(),
+  ];
+  return keys.map((label) => ({ label, value: byState[label] ?? 0 }));
+}
+
+/** Pink when a lane has real trouble (stuck/failed) — the failures table detail. */
+export function jobStateAccent(byState: Record<string, number>): Accent {
+  return (byState["stuck"] ?? 0) + (byState["failed"] ?? 0) > 0 ? "pink" : "none";
+}
+
+export function failureRows(failures: CreateJobFailure[]): string[][] {
+  return failures.map((job) => [
+    job.id.slice(0, 8),
+    job.app_id === null ? "—" : job.app_id.slice(0, 8),
+    job.state,
+    job.step ?? "—",
+    job.rule ?? "—",
+    job.round === null ? "—" : String(job.round),
+    job.created_at === null ? "—" : job.created_at.replace("T", " ").slice(0, 16),
+  ]);
+}
+
+/** skill_ver histogram, numeric order (v4 before v10); "?" for jobs with none. */
+export function skillVerRows(byVer: Record<string, number>): string[][] {
+  return Object.entries(byVer)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([ver, count]) => [`v${ver}`, String(count)]);
+}
+
+/** One row per readiness check, reason text under fails for the panel note. */
+export function healthCheckRows(checks: CreateHealthResponse["checks"]): string[][] {
+  return Object.entries(checks).map(([name, state]) => [name, state]);
+}
+
+export function tokenGroupRows(groups: CreateTokenGroup[]): string[][] {
+  return groups.map((row) => [
+    row.key,
+    String(row.runs),
+    row.total_tokens.toLocaleString("en-US"),
+    `$${row.cost_usd.toFixed(2)}${row.cost_estimated ? " est" : ""}`,
+  ]);
+}
