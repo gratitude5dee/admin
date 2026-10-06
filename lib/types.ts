@@ -532,3 +532,21 @@ export interface CreateHealthResponse {
   compile_max_per_turn: number;
   dev_origin_suffix: string;
 }
+
+/** /api/admin/logs — the merged ops_events + miniapp_gate_events stream
+ * (R-LOGS-01). Metadata only: kind, slug, user, ref, bytes, ts — no
+ * prompts, content, or message bodies (C4/L4). */
+export interface LogEvent {
+  ts: string;
+  source: "ops" | "gate";
+  kind: string;
+  app_slug: string | null;
+  user_id: string | null;
+  ref: string | null;
+  bytes: number | null;
+}
+
+export interface LogsResponse {
+  events: LogEvent[];
+  next_before?: string;
+}
