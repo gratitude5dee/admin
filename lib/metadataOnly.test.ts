@@ -48,6 +48,12 @@ const ALLOWED: readonly Allowed[] = [
     reason:
       "FeedbackResponse.items[].body is the bug/feature report a user submitted to the operators through the in-air Feedback inbox (README › Panels); it is addressed to this dashboard, not agent-conversation content, and predates A1.",
   },
+  {
+    file: "logs/page.tsx",
+    expression: "event.source",
+    reason:
+      "LogsResponse.events[].source is the table the event came from ('ops' | 'gate') — a stream label on /api/admin/logs, not message content.",
+  },
 ];
 
 /** Every page.tsx under app/(dashboard), relative to that root. */
