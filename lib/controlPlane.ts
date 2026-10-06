@@ -28,9 +28,24 @@ function apiKey(): string {
   return key;
 }
 
+/** airv2's requireAdmin demands X-Admin-Operator on every /api/admin/* call
+ * (it names the operator on admin_audit rows). The dashboard has a shared
+ * password login and no per-user identity, so a fixed label stands in —
+ * override with ADMIN_OPERATOR when several dashboards share the key. */
+function operatorId(): string {
+  return process.env.ADMIN_OPERATOR?.trim() || "dashboard";
+}
+
+function authHeaders(): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey()}`,
+    "x-admin-operator": operatorId(),
+  };
+}
+
 export async function adminFetch(path: string): Promise<Response> {
   return fetch(`${baseUrl()}${path}`, {
-    headers: { Authorization: `Bearer ${apiKey()}` },
+    headers: authHeaders(),
     cache: "no-store",
   });
 }
@@ -43,7 +58,7 @@ export async function adminSend<T>(
   const response = await fetch(`${baseUrl()}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${apiKey()}`,
+      ...authHeaders(),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),

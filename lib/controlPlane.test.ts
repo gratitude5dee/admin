@@ -23,10 +23,30 @@ describe("controlPlane client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://air.example.com/api/admin/tokens",
       {
-        headers: { Authorization: "Bearer test-admin-key" },
+        headers: {
+          Authorization: "Bearer test-admin-key",
+          "x-admin-operator": "dashboard",
+        },
         cache: "no-store",
       }
     );
+  });
+
+  it("sends ADMIN_OPERATOR as the operator id when configured", async () => {
+    process.env.ADMIN_OPERATOR = "ops-gratitude";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    await adminFetch("/api/admin/logs");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://air.example.com/api/admin/logs",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-admin-operator": "ops-gratitude",
+        }),
+      })
+    );
+    delete process.env.ADMIN_OPERATOR;
   });
 
   it("adminGet parses JSON and throws on non-2xx", async () => {

@@ -38,6 +38,7 @@ describe("POST /api/fleet/releases", () => {
       expect(String(input)).toBe("https://air.example.com/api/admin/fleet/releases");
       expect(init?.headers).toEqual({
         Authorization: "Bearer test-admin-key",
+        "x-admin-operator": "dashboard",
         "Content-Type": "application/json",
       });
       body = JSON.parse(String(init?.body)) as Record<string, unknown>;

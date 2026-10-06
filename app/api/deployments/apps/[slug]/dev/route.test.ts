@@ -47,6 +47,7 @@ describe("POST /api/deployments/apps/[slug]/dev", () => {
         method: "POST",
         headers: {
           Authorization: "Bearer test-admin-key",
+          "x-admin-operator": "dashboard",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ action: "revoke" }),
