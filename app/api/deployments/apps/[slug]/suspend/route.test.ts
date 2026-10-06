@@ -43,6 +43,7 @@ describe("POST /api/deployments/apps/[slug]/suspend", () => {
         method: "POST",
         headers: {
           Authorization: "Bearer test-admin-key",
+          "x-admin-operator": "dashboard",
           "Content-Type": "application/json",
         },
         body: "{}",

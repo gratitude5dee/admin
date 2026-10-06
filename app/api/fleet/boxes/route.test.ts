@@ -33,7 +33,7 @@ describe("fleet box actions", () => {
     expect(response.status).toBe(303);
     expect(fetch).toHaveBeenCalledWith("https://air.example.com/api/admin/boxes/relabel", expect.objectContaining({
       method: "POST",
-      headers: { Authorization: "Bearer test-admin-key", "Content-Type": "application/json" },
+      headers: { Authorization: "Bearer test-admin-key", "x-admin-operator": "dashboard", "Content-Type": "application/json" },
       body: "{}",
     }));
     expect(location(response).searchParams.get("box_result")).toContain("2 applied, 1 skipped, 1 failed");
