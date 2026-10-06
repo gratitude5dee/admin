@@ -46,6 +46,7 @@ The dashboard (this repo) proxies server-side to airv2 admin APIs. No live contr
 - Secret-leak check: grep page HTML and `.next/static` for the ADMIN_API_KEY value — must be absent.
 
 ## Gotchas
+- Control-plane auth is two-part: bearer AND `X-Admin-Operator` — the mock only checks the bearer, so verify auth-touching changes against the real route. Extending mock-cp.mjs, cursor-pager fixtures, and `env -u ADMIN_API_KEY` launch: `references/real-route-verification.md`.
 - Dev-mode React hydration-mismatch console error is caused by the automation browser's injected `devinid` attributes, not app code. The Next.js dev overlay shows "1 Issue" for it.
 - Nav link clicks sometimes need a second click in the automation browser before navigation registers.
 - `curl -X POST http://localhost:3000/api/login` needs `-H "Origin: http://localhost:3000"` — the middleware same-origin guard returns 403 without it.
