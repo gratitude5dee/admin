@@ -1,0 +1,18 @@
+{
+  "name": "app-switch",
+  "main": "index.js",
+  "compatibility_date": "2026-10-12",
+  "kv_namespaces": [
+    {
+      "binding": "HOSTING",
+      "id": "61b51af0f1da4cda8dd6449c845ac01e"
+    }
+  ],
+  "vars": {
+    "UPSTREAM_VERCEL": "https://airv2.vercel.app",
+    "UPSTREAM_CF": "https://airv2-app.gratitude-8f4.workers.dev"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

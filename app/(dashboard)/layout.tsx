@@ -15,6 +15,7 @@ const NAV = [
   { href: "/costs", label: "Costs" },
   { href: "/feedback", label: "Feedback" },
   { href: "/learning", label: "Learning" },
+  { href: "/hosting", label: "Hosting" },
 ];
 
 export default function DashboardLayout({
